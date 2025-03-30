@@ -12,7 +12,7 @@ intents.message_content = True
 
 # 创建带命令前缀的机器人实例（这里用!作为前缀）
 client = commands.Bot(
-    # command_prefix='!',
+    command_prefix='\\',
     intents=intents
 )
 
