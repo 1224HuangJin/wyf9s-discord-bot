@@ -83,20 +83,21 @@ async def slash_random(interaction: discord.Interaction):
 
 # ----- Send ------
 
+emojiList = [
+    'emm.webp',
+    'three_color_image.webp',
+    'jumbro.gif'
+]
 
-class PresetList(Enum):
-    """ 预定义选项列表 """
-    Test1 = "emm.webp"
-    Test2 = "three_color_image.webp"
-    Test3 = "junbro.gif"
-
+PresetList = Enum('Emoji', emojiList)
 
 @client.tree.command()
 async def image(
     interaction: discord.Interaction,
     preset: PresetList  # 会显示为下拉菜单
 ):
-    await interaction.response.send_message(f"{cfg.GHIMG_BASE}/{preset.value}")
+    imgurl = f'{cfg.GHIMG_BASE}/{preset.name}'
+    await interaction.response.send_message(f"> *Emoji: **[`{preset.name}`]({imgurl})***\n![]({imgurl})")
 
 # ----------------- 原有消息处理（可选保留） -----------------
 
