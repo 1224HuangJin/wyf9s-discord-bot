@@ -13,7 +13,6 @@ import io
 # Function
 import random
 from uuid import uuid4 as uuid
-import datetime
 # ...
 import config as c  # type: ignore
 import utils as u
@@ -36,7 +35,6 @@ async def on_ready():
     print(f'已登录为 {client.user}')
     # 同步斜杠命令到服务器（开发时建议在需要时手动调用）
     await update_emoji_list()
-    await client.tree.sync()
     print('斜杠命令已同步')
 
 # ----------------- 前缀命令 -----------------
@@ -116,6 +114,7 @@ async def update_emoji_list():
     global Emoji
     global PresetList
     try:
+        print('Updating emoji list...')
         resp = requests.get(f'{c.GHIMG_BASE}/emoji.json')
         Emoji = resp.json()
         if len(Emoji['emojis']) < 2:
@@ -125,6 +124,7 @@ async def update_emoji_list():
             ]
         PresetList = Enum('Emoji', Emoji['emojis'])
         await client.tree.sync()
+        print('Emoji list Synced √')
     except Exception as e:
         return e
     else:
@@ -143,7 +143,7 @@ async def emoji_update(interaction: discord.Interaction):
             f'**:x: Update Emoji Failed: {result}**'
         )
     else:
-        # success
+        # Success
         await interaction.response.send_message(
             f'''**:white_check_mark: Update Emoji Success!**
 > **Build Time**: <t:{Emoji["utc_build_timestamp"]}:f>
@@ -193,6 +193,20 @@ async def emoji(
         await interaction.response.send_message(
             f'> *Emoji: [{preset.name}]({imgurl})*\n> **ERROR: `{error}`**'
         )
+
+# ========== Others ==========
+
+
+@client.tree.command(
+    name='sync',
+    description='同步指令列表'
+)
+async def sync(interaction: discord.Interaction):
+    await client.tree.sync()
+    print('Command tree synced.')
+    await interaction.response.send_message(
+        '**:white_check_mark: 斜杠指令列表已同步**'
+    )
 
 # ----------------- 原有消息处理（可选保留） -----------------
 
