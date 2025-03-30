@@ -51,7 +51,10 @@ async def on_ready():
 
 # ----- Random - 随机数 -----
 
-@client.tree.command(name='random', description='生成自定义范围的随机数')
+@client.tree.command(
+    name='random',
+    description='生成自定义范围的随机数'
+)
 @app_commands.describe(
     min_num='最小值 (默认: 1)',
     max_num='最大值 (默认: 114514)'
@@ -78,7 +81,10 @@ async def slash_random(
 # ----- UUID -----
 
 
-@client.tree.command(name='uuid', description='生成一个 UUID')
+@client.tree.command(
+    name='uuid',
+    description='生成一个 UUID'
+)
 async def slash_random(interaction: discord.Interaction):
 
     await interaction.response.send_message(
@@ -117,8 +123,11 @@ async def update_emoji_list():
         return None
 
 
-@client.tree.command()
-async def image_update(interaction: discord.Interaction):
+@client.tree.command(
+    name='emoji_update',
+    description='更新表情包库数据'
+)
+async def emoji_update(interaction: discord.Interaction):
     result = update_emoji_list()
     if result:
         # Error
@@ -135,8 +144,11 @@ async def image_update(interaction: discord.Interaction):
         )
 
 
-@client.tree.command()
-async def image_info(interaction: discord.Interaction):
+@client.tree.command(
+    name='emoji_info',
+    description='查看表情包库相关信息'
+)
+async def emoji_info(interaction: discord.Interaction):
     await interaction.response.send_message(
         f'''**:information_source: Emojis Info**
 > **Build Time**: <t:{Emoji["utc_build_timestamp"]}:f>
@@ -144,14 +156,18 @@ async def image_info(interaction: discord.Interaction):
 > **Build on CF Pages**: {"Yes" if Emoji["is_cf_pages"] else "No"}
 > **Commit ID**: `{Emoji["commit_id"]}`
 > **Commit Branch**: `{Emoji["commit_branch"]}`
-> **Emoji Count**: {len[Emoji["emojis"]]}'''
+> **Emoji Count**: {len[Emoji["emojis"]]}
+> **Emoji Source**: `{c.GHIMG_BASE}/`'''
     )
 
 # ----- Send ------
 
 
-@client.tree.command()
-async def image(
+@client.tree.command(
+    name='emoji',
+    description='使用库中的表情包'
+)
+async def emoji(
     interaction: discord.Interaction,
     preset: PresetList  # 会显示为下拉菜单
 ):
