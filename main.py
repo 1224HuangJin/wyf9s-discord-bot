@@ -121,12 +121,12 @@ async def emoji_update(interaction: discord.Interaction):
     result = await update_emoji_list()
     if result:
         # Error
-        await interaction.response.send_message(
+        await interaction.followup.send(
             f'**:x: Update Emoji Failed: {result}**'
         )
     else:
         # Success
-        await interaction.response.send_message(
+        await interaction.followup.send(
             f'''**:white_check_mark: Update Emoji Success!**
 > **Build Time**: <t:{Emoji["utc_build_timestamp"]}:f>
 > **Commit**: `{Emoji["commit_id"]}`
@@ -211,7 +211,7 @@ async def sync(interaction: discord.Interaction):
     await interaction.response.defer()
     await client.tree.sync()
     print('Command tree synced.')
-    await interaction.response.send_message(
+    await interaction.followup.send(
         '**:white_check_mark: 斜杠指令列表已同步**'
     )
 # ----------------- 前缀命令 -----------------
