@@ -13,8 +13,10 @@ import io
 # Function
 import random
 from uuid import uuid4 as uuid
-# Config
-import config as cfg  # type: ignore
+import datetime
+# ...
+import config as c  # type: ignore
+import utils as u
 
 # 设置机器人需要的权限
 intents = discord.Intents.default()
@@ -77,9 +79,11 @@ async def slash_random(
 
 @client.tree.command(name="uuid", description="生成一个 UUID")
 async def slash_random(interaction: discord.Interaction):
+
     await interaction.response.send_message(
-        f":lock: 随机生成 UUID: **`{uuid()}`**",
-        ephemeral=True
+        f":lock: 随机生成 UUID: **`{uuid()}`**\n> 此条消息仅你可见, 且将在 <t:{u.utc_timestamp()+c.SECRET_MESSAGE_DELETE_SECOND}:R> 删除",
+        ephemeral=True,
+        delete_after=c.SECRET_MESSAGE_DELETE_SECOND
     )
 
 # ========== Emoji ==========
@@ -100,7 +104,7 @@ async def image(
     interaction: discord.Interaction,
     preset: PresetList  # 会显示为下拉菜单
 ):
-    imgurl = f'{cfg.GHIMG_BASE}/{preset.name}'
+    imgurl = f'{c.GHIMG_BASE}/{preset.name}'
     try:
         async with aiohttp.ClientSession() as session:  # creates session
             async with session.get(imgurl) as resp:  # gets image from url
@@ -112,7 +116,7 @@ async def image(
                     )
     except Exception as error:
         await interaction.response.send_message(
-            f"> *Send Emoji: [{preset.name}]({imgurl})*\n> **ERROR: `{error}`**",
+            f"> *Emoji: [{preset.name}]({imgurl})*\n> **ERROR: `{error}`**"
         )
 
 # ----------------- 原有消息处理（可选保留） -----------------
@@ -129,4 +133,4 @@ async def image(
 #     if 'random' in message.content and not message.content.startswith('!'):
 #         await message.channel.send(f'旧版触发：**{random.randint(1, 114514)}**')
 
-client.run(cfg.TOKEN)
+client.run(c.TOKEN)
