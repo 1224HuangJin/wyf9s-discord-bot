@@ -117,6 +117,7 @@ async def update_emoji_list():
 )
 
 async def emoji_update(interaction: discord.Interaction):
+    await interaction.response.defer()
     result = await update_emoji_list()
     if result:
         # Error
@@ -207,6 +208,7 @@ async def emoji(
     description='同步指令列表'
 )
 async def sync(interaction: discord.Interaction):
+    await interaction.response.defer()
     await client.tree.sync()
     print('Command tree synced.')
     await interaction.response.send_message(
@@ -217,6 +219,7 @@ async def sync(interaction: discord.Interaction):
 
 @client.command()
 async def sync(ctx: commands.Context):
+    await ctx.defer()
     await client.tree.sync()
     await ctx.send('**:white_check_mark: 斜杠指令列表已同步**')
 
