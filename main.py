@@ -1,9 +1,15 @@
+# coding: utf-8
+
+# Basic
 import discord
 from discord import app_commands
 from discord.ext import commands
-import random
+# Networking
 import requests
-
+# Function
+import random
+from uuid import uuid4 as uuid
+# Config
 import config as cfg  # type: ignore
 
 # 设置机器人需要的权限
@@ -36,10 +42,12 @@ async def on_ready():
 
 # ------------- ### 斜杠命令 ### -------------
 
+# ----- Random - 随机数 -----
+
 @client.tree.command(name="random", description="生成自定义范围的随机数")
 @app_commands.describe(
-    min_num="最小值（默认1）",
-    max_num="最大值（默认114514）"
+    min_num="最小值 (默认: 1)",
+    max_num="最大值 (默认: 114514)"
 )
 async def slash_random(
     interaction: discord.Interaction,
@@ -52,13 +60,23 @@ async def slash_random(
 
         result = random.randint(min_num, max_num)
         await interaction.response.send_message(
-            f"🎲 {min_num}-{max_num} 的随机数：**{result}**"
+            f":game_die: `{min_num}` - `{max_num}` 的随机数：**`{result}`**"
         )
     except ValueError:
         await interaction.response.send_message(
-            "请输入有效的整数范围！",
+            ":x: 请输入有效的整数范围！",
             ephemeral=True
         )
+
+# ----- UUID -----
+
+
+@client.tree.command(name="uuid", description="生成一个 UUID")
+async def slash_random(interaction: discord.Interaction):
+    await interaction.response.send_message(
+        f":lock: 随机生成 UUID: **`{uuid()}`**",
+        ephemeral=True
+    )
 
 # ----------------- 原有消息处理（可选保留） -----------------
 
