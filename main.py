@@ -35,8 +35,8 @@ client = commands.Bot(
 async def on_ready():
     print(f'已登录为 {client.user}')
     # 同步斜杠命令到服务器（开发时建议在需要时手动调用）
-    # await client.tree.sync()
     await update_emoji_list()
+    await client.tree.sync()
     print('斜杠命令已同步')
 
 # ----------------- 前缀命令 -----------------
