@@ -36,7 +36,7 @@ async def on_ready():
     print(f'已登录为 {client.user}')
     # 同步斜杠命令到服务器（开发时建议在需要时手动调用）
     # await client.tree.sync()
-    update_emoji_list()
+    await update_emoji_list()
     print('斜杠命令已同步')
 
 # ----------------- 前缀命令 -----------------
@@ -136,7 +136,7 @@ async def update_emoji_list():
     description='更新表情包库数据'
 )
 async def emoji_update(interaction: discord.Interaction):
-    result = update_emoji_list()
+    result = await update_emoji_list()
     if result:
         # Error
         await interaction.response.send_message(
