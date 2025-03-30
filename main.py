@@ -104,7 +104,10 @@ Emoji: dict = {
     "is_cf_pages": False,
     "commit_id": None,
     "commit_branch": None,
-    "emojis": []
+    "emojis": [
+        "three_color_image.webp",
+        "emm.webp"
+    ]
 }
 PresetList = Enum('Emoji', Emoji['emojis'])
 
@@ -115,6 +118,11 @@ async def update_emoji_list():
     try:
         resp = requests.get(f'{c.GHIMG_BASE}/emoji.json')
         Emoji = resp.json()
+        if len(Emoji['emojis']) < 2:
+            Emoji['emojis'] = [
+                "three_color_image.webp",
+                "emm.webp"
+            ]
         PresetList = Enum('Emoji', Emoji['emojis'])
         await client.tree.sync()
     except Exception as e:
@@ -140,7 +148,7 @@ async def emoji_update(interaction: discord.Interaction):
             f'''**:white_check_mark: Update Emoji Success!**
 > **Build Time**: <t:{Emoji["utc_build_timestamp"]}:f>
 > **Commit**: `{Emoji["commit_id"]}`
-> **Emojis**: `{len[Emoji["emojis"]]}`'''
+> **Emojis**: `{len(Emoji["emojis"])}`'''
         )
 
 
@@ -156,7 +164,7 @@ async def emoji_info(interaction: discord.Interaction):
 > **Build on CF Pages**: {"Yes" if Emoji["is_cf_pages"] else "No"}
 > **Commit ID**: `{Emoji["commit_id"]}`
 > **Commit Branch**: `{Emoji["commit_branch"]}`
-> **Emoji Count**: {len[Emoji["emojis"]]}
+> **Emoji Count**: {len(Emoji["emojis"])}
 > **Emoji Source**: `{c.GHIMG_BASE}/`'''
     )
 
