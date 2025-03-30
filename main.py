@@ -4,7 +4,6 @@
 import discord
 from discord import app_commands
 from discord.ext import commands
-from enum import Enum
 # Networking
 import aiohttp
 import requests
@@ -28,6 +27,8 @@ client = commands.Bot(
 )
 
 # ------------- ### 斜杠命令 ### -------------
+
+# ========== Tools ==========
 
 # ----- Random - 随机数 -----
 
@@ -165,7 +166,7 @@ async def emoji_autocomplete(
         app_commands.Choice(name=name, value=name)
         for name in Emoji['emojis']
         if current.lower() in name.lower()  # 不区分大小写搜索
-    ][:20]  # 最多显示 30 个选项
+    ][:c.MAX_RESULTS]  # 最多显示 ?? 个选项
     return filtered
 
 
@@ -181,7 +182,7 @@ async def emoji(
 ):
     if name not in Emoji['emojis']:
         return await interaction.response.send_message(
-            ":x: 无效的表情包名称，请使用 Tab 键从列表中选择",
+            ":x: **无效的表情包名称**，请从列表中选择",
             ephemeral=True
         )
 
