@@ -96,13 +96,13 @@ async def update_emoji_list():
     global Emoji
     try:
         print('Updating emoji list...')
-        resp = requests.get(f'{c.GHIMG_BASE}/emoji.json')
+        resp = requests.get(f'{c.GHIMG_BASE}/emoji.json?disable-cache')
         Emoji = resp.json()
-        # if len(Emoji['emojis']) < 2:
-        #     Emoji['emojis'] = [
-        #         "three_color_image.webp",
-        #         "emm.webp"
-        #     ]
+        if len(Emoji['emojis']) < 2:
+            Emoji['emojis'] = [
+                "three_color_image.webp",
+                "emm.webp"
+            ]
         await client.tree.sync()
         print('Emoji list Synced √')
     except Exception as e:
