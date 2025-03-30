@@ -6,7 +6,10 @@ from discord import app_commands
 from discord.ext import commands
 from enum import Enum
 # Networking
+import aiohttp
 import requests
+# Processing
+import io
 # Function
 import random
 from uuid import uuid4 as uuid
@@ -91,13 +94,26 @@ emojiList = [
 
 PresetList = Enum('Emoji', emojiList)
 
+
 @client.tree.command()
 async def image(
     interaction: discord.Interaction,
     preset: PresetList  # 会显示为下拉菜单
 ):
     imgurl = f'{cfg.GHIMG_BASE}/{preset.name}'
-    await interaction.response.send_message(f"> *Emoji: **[`{preset.name}`]({imgurl})***\n![]({imgurl})")
+    try:
+        async with aiohttp.ClientSession() as session:  # creates session
+            async with session.get(imgurl) as resp:  # gets image from url
+                img = await resp.read()  # reads image from response
+                with io.BytesIO(img) as file:  # converts to file-like object
+                    await interaction.response.send_message(
+                        f"> *Emoji: [{preset.name}]({imgurl})*",
+                        file=discord.File(file, preset.name)
+                    )
+    except Exception as error:
+        await interaction.response.send_message(
+            f"> *Send Emoji: [{preset.name}]({imgurl})*\n> **ERROR: `{error}`**",
+        )
 
 # ----------------- 原有消息处理（可选保留） -----------------
 
