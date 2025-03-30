@@ -23,7 +23,7 @@ intents.message_content = True
 
 # 创建带命令前缀的机器人实例（这里用 \ 作为前缀）
 client = commands.Bot(
-    command_prefix='//',
+    command_prefix=c.COMMAND_PREFIX,
     intents=intents
 )
 
@@ -154,15 +154,39 @@ async def emoji_info(interaction: discord.Interaction):
 # ----- Send ------
 
 
+async def emoji_autocomplete(
+    interaction: discord.Interaction,
+    current: str  # 用户当前输入的内容
+) -> list[app_commands.Choice[str]]:
+    '''
+    表情包获取自动生成下拉菜单
+    '''
+    # 根据输入内容过滤选项
+    filtered = [
+        app_commands.Choice(name=name, value=name)
+        for name in Emoji['emojis']
+        if current.lower() in name.lower()  # 不区分大小写搜索
+    ][:30]  # 最多显示 30 个选项
+    return filtered
+
+
 @client.tree.command(
     name='emoji',
     description='使用库中的表情包'
 )
+@app_commands.describe(preset="输入名称搜索表情包")
+@app_commands.autocomplete(preset=emoji_autocomplete)
 async def emoji(
     interaction: discord.Interaction,
-    preset: PresetList  # 会显示为下拉菜单
+    preset: str
 ):
-    imgurl = f'{c.GHIMG_BASE}/{preset.name}'
+    if preset not in Emoji['emojis']:
+        return await interaction.response.send_message(
+            ":x: 无效的表情包名称，请使用 Tab 键从列表中选择",
+            ephemeral=True
+        )
+
+    imgurl = f'{c.GHIMG_BASE}/{preset}'
     try:
         async with aiohttp.ClientSession() as session:  # creates session
             async with session.get(imgurl) as resp:  # gets image from url
