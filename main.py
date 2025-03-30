@@ -117,7 +117,7 @@ async def update_emoji_list():
 
 
 @client.tree.command()
-async def image_update_list(interaction: discord.Interaction):
+async def image_update(interaction: discord.Interaction):
     result = update_emoji_list()
     if result:
         # Error
@@ -127,8 +127,24 @@ async def image_update_list(interaction: discord.Interaction):
     else:
         # success
         await interaction.response.send_message(
-            f'**:white_check_mark: Update Emoji Success!**\n> **Build Time**: <t:{Emoji['utc_build_time']}:f>\n> **Commit**: `{Emoji['commit_id']}`\n> **Emojis**: `{len[Emoji['emojis']]}`'
+            f'''**:white_check_mark: Update Emoji Success!**
+> **Build Time**: <t:{Emoji["utc_build_timestamp"]}:f>
+> **Commit**: `{Emoji["commit_id"]}`
+> **Emojis**: `{len[Emoji["emojis"]]}`'''
         )
+
+
+@client.tree.command()
+async def image_info(interaction: discord.Interaction):
+    await interaction.response.send_message(
+        f'''**:information_source: Emojis Info**
+> **Build Time**: <t:{Emoji["utc_build_timestamp"]}:f>
+> **Build Time String**: `{Emoji["utc_build_time"]}`
+> **Build on CF Pages**: {"Yes" if Emoji["is_cf_pages"] else "No"}
+> **Commit ID**: `{Emoji["commit_id"]}`
+> **Commit Branch**: `{Emoji["commit_branch"]}`
+> **Emoji Count**: {len[Emoji["emojis"]]}'''
+    )
 
 # ----- Send ------
 
