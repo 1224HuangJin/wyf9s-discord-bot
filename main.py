@@ -23,21 +23,14 @@ intents.message_content = True
 
 # 创建带命令前缀的机器人实例（这里用 \ 作为前缀）
 client = commands.Bot(
-    command_prefix='\\',
+    command_prefix='//',
     intents=intents
 )
-
-# ----------------- 前缀命令 -----------------
-
-
-# @client.command()
-# async def randomnum(ctx: commands.Context):
-#     """发送1到114514的随机数（使用!randomnum触发）"""
-#     await ctx.send(f'1到114514的随机数：**{random.randint(1, 114514)}**')
 
 # ------------- ### 斜杠命令 ### -------------
 
 # ----- Random - 随机数 -----
+
 
 @client.tree.command(
     name='random',
@@ -197,6 +190,13 @@ async def sync(interaction: discord.Interaction):
     await interaction.response.send_message(
         '**:white_check_mark: 斜杠指令列表已同步**'
     )
+# ----------------- 前缀命令 -----------------
+
+
+@client.command()
+async def sync(ctx: commands.Context):
+    await client.tree.sync()
+    await ctx.send('**:white_check_mark: 斜杠指令列表已同步**')
 
 # ----------------- 原有消息处理（可选保留） -----------------
 
@@ -211,6 +211,7 @@ async def sync(interaction: discord.Interaction):
 #         return
 #     if 'random' in message.content and not message.content.startswith('!'):
 #         await message.channel.send(f'旧版触发：**{random.randint(1, 114514)}**')
+
 
 # ------------------- 登录 -------------------
 
