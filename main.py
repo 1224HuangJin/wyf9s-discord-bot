@@ -27,16 +27,6 @@ client = commands.Bot(
     intents=intents
 )
 
-# ----------------- 基础事件 -----------------
-
-
-@client.event
-async def on_ready():
-    print(f'已登录为 {client.user}')
-    # 同步斜杠命令到服务器（开发时建议在需要时手动调用）
-    await update_emoji_list()
-    print('斜杠命令已同步')
-
 # ----------------- 前缀命令 -----------------
 
 
@@ -221,5 +211,16 @@ async def sync(interaction: discord.Interaction):
 #         return
 #     if 'random' in message.content and not message.content.startswith('!'):
 #         await message.channel.send(f'旧版触发：**{random.randint(1, 114514)}**')
+
+# ------------------- 登录 -------------------
+
+
+@client.event
+async def on_ready():
+    print(f'已登录为 {client.user}')
+    # 同步斜杠命令到服务器（开发时建议在需要时手动调用）
+    await update_emoji_list()
+    print('斜杠命令已同步')
+
 
 client.run(c.TOKEN)
