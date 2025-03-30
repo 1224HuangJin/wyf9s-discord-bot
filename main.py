@@ -115,6 +115,7 @@ async def update_emoji_list():
     name='emoji_update',
     description='更新表情包库数据'
 )
+
 async def emoji_update(interaction: discord.Interaction):
     await interaction.response.defer()
     result = await update_emoji_list()
@@ -160,12 +161,11 @@ async def emoji_autocomplete(
     表情包获取自动生成下拉菜单
     '''
     # 根据输入内容过滤选项
-    # filtered = [
-    #     app_commands.Choice(name=name, value=name)
-    #     for name in Emoji['emojis']
-    #     if current.lower() in name.lower()  # 不区分大小写搜索
-    # ][:20]  # 最多显示 30 个选项
-    filtered = Emoji['emojis']
+    filtered = [
+        app_commands.Choice(name=name, value=name)
+        for name in Emoji['emojis']
+        if current.lower() in name.lower()  # 不区分大小写搜索
+    ][:20]  # 最多显示 30 个选项
     return filtered
 
 
