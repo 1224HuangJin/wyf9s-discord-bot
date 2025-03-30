@@ -4,6 +4,7 @@
 import discord
 from discord import app_commands
 from discord.ext import commands
+from enum import Enum
 # Networking
 import requests
 # Function
@@ -16,7 +17,7 @@ import config as cfg  # type: ignore
 intents = discord.Intents.default()
 intents.message_content = True
 
-# 创建带命令前缀的机器人实例（这里用!作为前缀）
+# 创建带命令前缀的机器人实例（这里用 \ 作为前缀）
 client = commands.Bot(
     command_prefix='\\',
     intents=intents
@@ -77,6 +78,25 @@ async def slash_random(interaction: discord.Interaction):
         f":lock: 随机生成 UUID: **`{uuid()}`**",
         ephemeral=True
     )
+
+# ========== Emoji ==========
+
+# ----- Send ------
+
+
+class PresetList(Enum):
+    """ 预定义选项列表 """
+    Test1 = "emm.webp"
+    Test2 = "three_color_image.webp"
+    Test3 = "junbro.gif"
+
+
+@client.tree.command()
+async def image(
+    interaction: discord.Interaction,
+    preset: PresetList  # 会显示为下拉菜单
+):
+    await interaction.response.send_message(f"{cfg.GHIMG_BASE}/{preset.value}")
 
 # ----------------- 原有消息处理（可选保留） -----------------
 
