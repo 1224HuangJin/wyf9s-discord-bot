@@ -100,6 +100,7 @@ Emoji: dict = {
     "commit_branch": None,
     "emojis": []
 }
+PresetList = Enum('Emoji', Emoji['emojis'])
 
 
 async def update_emoji_list():
