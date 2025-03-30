@@ -92,7 +92,7 @@ async def slash_random(interaction: discord.Interaction):
 # ----- Update -----
 
 # rollback
-Emoji = {
+Emoji: dict = {
     "utc_build_timestamp": 0,
     "utc_build_time": "1970-01-01 00:00:00.000000+00:00",
     "is_cf_pages": False,
@@ -107,7 +107,7 @@ async def update_emoji_list():
     global PresetList
     try:
         resp = requests.get(f'{c.GHIMG_BASE}/emoji.json')
-        Emoji: dict = resp.json()
+        Emoji = resp.json()
         PresetList = Enum('Emoji', Emoji['emojis'])
         await client.tree.sync()
     except Exception as e:
