@@ -90,22 +90,19 @@ Emoji: dict = {
         "emm.webp"
     ]
 }
-PresetList = Enum('Emoji', Emoji['emojis'])
 
 
 async def update_emoji_list():
     global Emoji
-    global PresetList
     try:
         print('Updating emoji list...')
         resp = requests.get(f'{c.GHIMG_BASE}/emoji.json')
         Emoji = resp.json()
-        if len(Emoji['emojis']) < 2:
-            Emoji['emojis'] = [
-                "three_color_image.webp",
-                "emm.webp"
-            ]
-        PresetList = Enum('Emoji', Emoji['emojis'])
+        # if len(Emoji['emojis']) < 2:
+        #     Emoji['emojis'] = [
+        #         "three_color_image.webp",
+        #         "emm.webp"
+        #     ]
         await client.tree.sync()
         print('Emoji list Synced √')
     except Exception as e:
@@ -118,6 +115,7 @@ async def update_emoji_list():
     name='emoji_update',
     description='更新表情包库数据'
 )
+
 async def emoji_update(interaction: discord.Interaction):
     result = await update_emoji_list()
     if result:
@@ -166,7 +164,7 @@ async def emoji_autocomplete(
         app_commands.Choice(name=name, value=name)
         for name in Emoji['emojis']
         if current.lower() in name.lower()  # 不区分大小写搜索
-    ][:30]  # 最多显示 30 个选项
+    ][:20]  # 最多显示 30 个选项
     return filtered
 
 
@@ -174,31 +172,31 @@ async def emoji_autocomplete(
     name='emoji',
     description='使用库中的表情包'
 )
-@app_commands.describe(preset="输入名称搜索表情包")
-@app_commands.autocomplete(preset=emoji_autocomplete)
+@app_commands.describe(name="输入名称搜索表情包")
+@app_commands.autocomplete(name=emoji_autocomplete)
 async def emoji(
     interaction: discord.Interaction,
-    preset: str
+    name: str
 ):
-    if preset not in Emoji['emojis']:
+    if name not in Emoji['emojis']:
         return await interaction.response.send_message(
             ":x: 无效的表情包名称，请使用 Tab 键从列表中选择",
             ephemeral=True
         )
 
-    imgurl = f'{c.GHIMG_BASE}/{preset}'
+    imgurl = f'{c.GHIMG_BASE}/{name}'
     try:
         async with aiohttp.ClientSession() as session:  # creates session
             async with session.get(imgurl) as resp:  # gets image from url
                 img = await resp.read()  # reads image from response
                 with io.BytesIO(img) as file:  # converts to file-like object
                     await interaction.response.send_message(
-                        f'> *Emoji: [{preset.name}]({imgurl})*',
-                        file=discord.File(file, preset.name)
+                        f'> *Emoji: [{name}]({imgurl})*',
+                        file=discord.File(file, name)
                     )
     except Exception as error:
         await interaction.response.send_message(
-            f'> *Emoji: [{preset.name}]({imgurl})*\n> **ERROR: `{error}`**'
+            f'> *Emoji: [{name}]({imgurl})*\n> **ERROR: `{error}`**'
         )
 
 # ========== Others ==========
@@ -245,6 +243,7 @@ async def on_ready():
     print(f'已登录为 {client.user}')
     # 同步斜杠命令到服务器（开发时建议在需要时手动调用）
     await update_emoji_list()
+    await client.tree.sync()
     print('斜杠命令已同步')
 
 
