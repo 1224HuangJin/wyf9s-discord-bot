@@ -77,6 +77,7 @@ async def slash_random(interaction: discord.Interaction):
 
 # ----- Delete Message - 删除消息 -----
 
+
 @client.tree.command(
     name='delete',
     description='删除消息'
@@ -98,17 +99,17 @@ async def delete_message(
     #     except discord.Forbidden:
     #         await interaction.response.send_message(
     #             f':x: **权限不足, 无法删除此消息** :x:',
-    #             ephemeral=show_to_public
+    #             ephemeral=not show_to_public
     #         )
     #     except discord.NotFound:
     #         await interaction.response.send_message(
     #             f':x: **找不到 ID 为 `{msgid}` 的消息** :x:',
-    #             ephemeral=show_to_public
+    #             ephemeral=not show_to_public
     #         )
     #     except Exception as e:
     #         await interaction.response.send_message(
     #             f':x: **删除消息 `{msgid}` 时出错: `{e}`** :x:',
-    #             ephemeral=show_to_public
+    #             ephemeral=not show_to_public
     #         )
     # 2. 删除指定 id 的消息
     # elif message_id:
@@ -120,31 +121,32 @@ async def delete_message(
         except discord.Forbidden:
             await interaction.response.send_message(
                 f':x: **权限不足, 无法删除此消息** :x:',
-                ephemeral=show_to_public
+                ephemeral=not show_to_public
             )
         except discord.NotFound:
             await interaction.response.send_message(
                 f':x: **找不到 ID 为 `{message_id}` 的消息** :x:',
-                ephemeral=show_to_public
+                ephemeral=not show_to_public
             )
         except ValueError:
             await interaction.response.send_message(
                 f':x: **消息 ID 不为整数: `{message_id}`** :x:',
-                ephemeral=show_to_public
+                ephemeral=not show_to_public
             )
         except Exception as e:
             await interaction.response.send_message(
                 f':x: **删除消息 `{message_id}` 时出错: `{e}`** :x:',
-                ephemeral=show_to_public
+                ephemeral=not show_to_public
             )
         else:
             await interaction.response.send_message(
-                f':white_check_mark: **删除 *{message.author.nick} (`{message.author.name}`)* 的消息 `{message_id}` 成功!** :white_check_mark: '
+                f':white_check_mark: **删除消息 `{message_id}` 成功!** :white_check_mark: ',
+                ephemeral=not show_to_public
             )
     else:
         await interaction.response.send_message(
             f':x: **未指定要删除的消息 (通过回复消息或指定消息 ID)** :x:',
-            ephemeral=show_to_public
+            ephemeral=not show_to_public
         )
 
 # ========== Emoji ==========
@@ -188,7 +190,6 @@ async def update_emoji_list():
     name='emoji_update',
     description='更新表情包库数据'
 )
-
 async def emoji_update(interaction: discord.Interaction):
     await interaction.response.defer()
     result = await update_emoji_list()
