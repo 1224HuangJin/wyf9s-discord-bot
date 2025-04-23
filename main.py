@@ -87,14 +87,14 @@ async def slash_random(interaction: discord.Interaction):
 )
 async def delete_message(
     interaction: discord.Interaction,
-    message_id,
+    message_id: str,
     show_to_public: bool = False
 ):
     # 1. 删除回复的消息
     # if interaction.message and interaction.message.reference:
     #     msgid = interaction.message.reference.message_id
     #     try:
-    #         await discord.Message(msgid).delete()
+    #         await message = interaction.channel.get_partial_message(message_id).delete()
     #     except discord.Forbidden:
     #         await interaction.response.send_message(
     #             f':x: **权限不足, 无法删除此消息** :x:',
@@ -115,7 +115,7 @@ async def delete_message(
     if message_id:
         try:
             message_id = int(message_id)
-            message = discord.Message(message_id)
+            message = interaction.channel.get_partial_message(message_id)
             await message.delete()
         except discord.Forbidden:
             await interaction.response.send_message(
