@@ -87,11 +87,11 @@ async def slash_random(interaction: discord.Interaction):
 )
 async def delete_message(
     interaction: discord.Interaction,
-    message_id: int = None,
+    message_id: str = None,
     show_to_public: bool = False
 ):
     # 1. 删除回复的消息
-    if interaction.message.reference:
+    if interaction.message and interaction.message.reference:
         msgid = interaction.message.reference.message_id
         try:
             await interaction.message.delete(msgid)
@@ -108,6 +108,7 @@ async def delete_message(
     # 2. 删除指定 id 的消息
     elif message_id:
         try:
+            message_id = int(message_id)
             await interaction.message.delete(message_id)
         except discord.Forbidden:
             await interaction.response.send_message(
@@ -117,6 +118,11 @@ async def delete_message(
         except discord.NotFound:
             await interaction.response.send_message(
                 f':x: **找不到 ID 为 `{message_id}` 的消息** :x:',
+                ephemeral=show_to_public
+            )
+        except ValueError:
+            await interaction.response.send_message(
+                f':x: **请提供有效的消息 ID** :x:',
                 ephemeral=show_to_public
             )
     else:
