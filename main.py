@@ -75,6 +75,56 @@ async def slash_random(interaction: discord.Interaction):
         delete_after=c.SECRET_MESSAGE_DELETE_SECOND
     )
 
+# ----- Delete Message - 删除消息 -----
+
+@client.tree.command(
+    name='delete',
+    description='删除消息'
+)
+@app_commands.describe(
+    message_id='要删除的消息 ID',
+    show_to_public='是否公开显示删除结果'
+)
+async def delete_message(
+    interaction: discord.Interaction,
+    message_id: int = None,
+    show_to_public: bool = False
+):
+    # 1. 删除回复的消息
+    if interaction.message.reference:
+        msgid = interaction.message.reference.message_id
+        try:
+            await interaction.message.delete(msgid)
+        except discord.Forbidden:
+            await interaction.response.send_message(
+                f':x: **权限不足, 无法删除此消息** :x:',
+                ephemeral=show_to_public
+            )
+        except discord.NotFound:
+            await interaction.response.send_message(
+                f':x: **找不到 ID 为 `{msgid}` 的消息** :x:',
+                ephemeral=show_to_public
+            )
+    # 2. 删除指定 id 的消息
+    elif message_id:
+        try:
+            await interaction.message.delete(message_id)
+        except discord.Forbidden:
+            await interaction.response.send_message(
+                f':x: **权限不足, 无法删除此消息** :x:',
+                ephemeral=show_to_public
+            )
+        except discord.NotFound:
+            await interaction.response.send_message(
+                f':x: **找不到 ID 为 `{message_id}` 的消息** :x:',
+                ephemeral=show_to_public
+            )
+    else:
+        await interaction.response.send_message(
+            f':x: **未指定要删除的消息 (通过回复消息或指定消息 ID)** :x:',
+            ephemeral=show_to_public
+        )
+
 # ========== Emoji ==========
 
 # ----- Update -----
