@@ -87,29 +87,36 @@ async def slash_random(interaction: discord.Interaction):
 )
 async def delete_message(
     interaction: discord.Interaction,
-    message_id: str = None,
+    message_id,
     show_to_public: bool = False
 ):
     # 1. 删除回复的消息
-    if interaction.message and interaction.message.reference:
-        msgid = interaction.message.reference.message_id
-        try:
-            await interaction.message.delete(msgid)
-        except discord.Forbidden:
-            await interaction.response.send_message(
-                f':x: **权限不足, 无法删除此消息** :x:',
-                ephemeral=show_to_public
-            )
-        except discord.NotFound:
-            await interaction.response.send_message(
-                f':x: **找不到 ID 为 `{msgid}` 的消息** :x:',
-                ephemeral=show_to_public
-            )
+    # if interaction.message and interaction.message.reference:
+    #     msgid = interaction.message.reference.message_id
+    #     try:
+    #         await discord.Message(msgid).delete()
+    #     except discord.Forbidden:
+    #         await interaction.response.send_message(
+    #             f':x: **权限不足, 无法删除此消息** :x:',
+    #             ephemeral=show_to_public
+    #         )
+    #     except discord.NotFound:
+    #         await interaction.response.send_message(
+    #             f':x: **找不到 ID 为 `{msgid}` 的消息** :x:',
+    #             ephemeral=show_to_public
+    #         )
+    #     except Exception as e:
+    #         await interaction.response.send_message(
+    #             f':x: **删除消息 `{msgid}` 时出错: `{e}`** :x:',
+    #             ephemeral=show_to_public
+    #         )
     # 2. 删除指定 id 的消息
-    elif message_id:
+    # elif message_id:
+    if message_id:
         try:
             message_id = int(message_id)
-            await interaction.message.delete(message_id)
+            message = discord.Message(message_id)
+            await message.delete()
         except discord.Forbidden:
             await interaction.response.send_message(
                 f':x: **权限不足, 无法删除此消息** :x:',
@@ -122,8 +129,17 @@ async def delete_message(
             )
         except ValueError:
             await interaction.response.send_message(
-                f':x: **请提供有效的消息 ID** :x:',
+                f':x: **消息 ID 不为整数: `{message_id}`** :x:',
                 ephemeral=show_to_public
+            )
+        except Exception as e:
+            await interaction.response.send_message(
+                f':x: **删除消息 `{message_id}` 时出错: `{e}`** :x:',
+                ephemeral=show_to_public
+            )
+        else:
+            await interaction.response.send_message(
+                f':white_check_mark: **删除 *{message.author.nick} (`{message.author.name}`)* 的消息 `{message_id}` 成功!** :white_check_mark: '
             )
     else:
         await interaction.response.send_message(
@@ -302,7 +318,7 @@ async def sync(ctx: commands.Context):
 async def on_ready():
     print(f'已登录为 {client.user}')
     # 同步斜杠命令到服务器（开发时建议在需要时手动调用）
-    await update_emoji_list()
+    # await update_emoji_list()
     await client.tree.sync()
     print('斜杠命令已同步')
 
