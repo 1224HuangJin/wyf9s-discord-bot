@@ -186,8 +186,7 @@ async def clear_message(
                 success_count += 1
     await interaction.response.send_message(
         f':broom: 清除用户 ID 为 **{user_id}** 的消息 :broom:' +
-        f'\n抓取最近消息 **{message_count}** 条, 其中此用户发送 **{checked_count}** 条, 成功删除 **{success_count}** 条' +
-        f'\n> **最近的错误**: `{last_error}`' if last_error else ''
+        f'\n抓取最近消息 **{message_count}** 条, 其中此用户发送 **{checked_count}** 条, 成功删除 **{success_count}** 条'
     )
 
 # ========== Emoji ==========
