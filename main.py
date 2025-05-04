@@ -149,6 +149,40 @@ async def delete_message(
             ephemeral=not show_to_public
         )
 
+# ----- Clear Message - 清除 (某人) 的消息 -----
+
+
+@client.tree.command(
+    name='clear-message',
+    description='清除 (某人) 的消息'
+)
+@app_commands.describe(
+    user_id='用户 (机器人) ID',
+    message_count='拉取最近消息的数量'
+)
+async def clear_message(
+    interaction: discord.Interaction,
+    user_id: int,
+    message_count: int
+):
+    channel_id = interaction.channel_id
+    message_list: list[discord.Message] = await client.get_channel(channel_id).history(limit=message_count)
+    checked_count = 0
+    success_count = 0
+    for i in message_list:
+        if i.author.id == user_id:
+            checked_count += 1
+            try:
+                i.delete()
+            except:
+                pass
+            else:
+                success_count += 1
+    await interaction.response.send_message(
+        f':broom: 清除用户 ID 为 {user_id} 的消息 :broom:\n' +
+        f'抓取消息 *(最多)* **{message_count}** 条, 其中为此用户发送 {checked_count} 条, 成功删除 {success_count} 条'
+    )
+
 # ========== Emoji ==========
 
 # ----- Update -----
