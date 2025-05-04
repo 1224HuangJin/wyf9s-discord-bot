@@ -165,10 +165,11 @@ async def clear_message(
     user_id: str,
     message_count: int
 ):
+    await interaction.response.defer()
     try:
         user_id = int(user_id)
     except:
-        await interaction.response.send_message(
+        await interaction.followup.send(
             f':x: **用户 ID 不为整数: `{user_id}`** :x:'
         )
     message_list = [msg async for msg in interaction.channel.history(limit=message_count)]
@@ -184,7 +185,7 @@ async def clear_message(
                 last_error = e
             else:
                 success_count += 1
-    await interaction.response.send_message(
+    await interaction.followup.send(
         f':broom: 清除用户 ID 为 **{user_id}** 的消息 :broom:' +
         f'\n抓取最近消息 **{message_count}** 条, 其中此用户发送 **{checked_count}** 条, 成功删除 **{success_count}** 条'
     )
