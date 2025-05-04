@@ -158,33 +158,41 @@ async def delete_message(
 )
 @app_commands.describe(
     user_id='用户 (机器人) ID',
-    message_count='拉取最近消息的数量'
+    message_count='拉取最近消息的数量',
+    use_bulk_delete='是否使用批量删除 (无法删除 14 天前的消息)'
 )
 async def clear_message(
     interaction: discord.Interaction,
     user_id: str,
-    message_count: int
+    message_count: int,
+    use_bulk_delete: bool
 ):
     await interaction.response.defer()
+    # 获取目标用户 id
     try:
         user_id = int(user_id)
     except:
         await interaction.followup.send(
             f':x: **用户 ID 不为整数: `{user_id}`** :x:'
         )
+    # 获取消息列表
     message_list = [msg async for msg in interaction.channel.history(limit=message_count)]
+    checked_messages = []
     checked_count = 0
     success_count = 0
-    last_error = None
     for i in message_list:
         if i.author.id == user_id:
-            checked_count += 1
-            try:
-                await i.delete()
-            except Exception as e:
-                last_error = e
-            else:
-                success_count += 1
+            # checked_messages.append(i.id if use_bulk_delete else i)
+            checked_messages.append(i)
+    checked_count = len(checked_messages)
+    # 删除消息 (普通删除)
+    for i in checked_messages:
+        try:
+            await i.delete()
+        except:
+            pass
+        else:
+            success_count += 1
     await interaction.followup.send(
         f':broom: 清除用户 ID 为 **{user_id}** 的消息 :broom:' +
         f'\n抓取最近消息 **{message_count}** 条, 其中此用户发送 **{checked_count}** 条, 成功删除 **{success_count}** 条'
