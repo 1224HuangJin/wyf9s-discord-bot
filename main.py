@@ -162,9 +162,15 @@ async def delete_message(
 )
 async def clear_message(
     interaction: discord.Interaction,
-    user_id: int,
+    user_id: str,
     message_count: int
 ):
+    try:
+        user_id = int(user_id)
+    except ValueError:
+        await interaction.response.send_message(
+            f':x: **用户 ID 不为整数: `{user_id}`** :x:'
+        )
     channel_id = interaction.channel_id
     message_list: list[discord.Message] = await client.get_channel(channel_id).history(limit=message_count)
     checked_count = 0
