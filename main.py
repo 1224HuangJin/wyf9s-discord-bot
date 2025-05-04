@@ -174,18 +174,20 @@ async def clear_message(
     message_list = [msg async for msg in interaction.channel.history(limit=message_count)]
     checked_count = 0
     success_count = 0
+    last_error = None
     for i in message_list:
         if i.author.id == user_id:
             checked_count += 1
             try:
-                i.delete()
-            except:
-                pass
+                await i.delete()
+            except Exception as e:
+                last_error = e
             else:
                 success_count += 1
     await interaction.response.send_message(
-        f':broom: 清除用户 ID 为 {user_id} 的消息 :broom:\n' +
-        f'抓取消息 *(最多)* **{message_count}** 条, 其中为此用户发送 {checked_count} 条, 成功删除 {success_count} 条'
+        f':broom: 清除用户 ID 为 **{user_id}** 的消息 :broom:' +
+        f'\n抓取最近消息 **{message_count}** 条, 其中此用户发送 **{checked_count}** 条, 成功删除 **{success_count}** 条' +
+        f'\n> **最近的错误**: `{last_error}`' if last_error else ''
     )
 
 # ========== Emoji ==========
