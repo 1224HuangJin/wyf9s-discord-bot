@@ -171,7 +171,7 @@ async def clear_message(
         await interaction.response.send_message(
             f':x: **用户 ID 不为整数: `{user_id}`** :x:'
         )
-    message_list: list[discord.Message] = interaction.channel.history(limit=message_count).flatten()
+    message_list = [msg async for msg in interaction.channel.history(limit=message_count)]
     checked_count = 0
     success_count = 0
     for i in message_list:
