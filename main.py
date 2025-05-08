@@ -159,13 +159,13 @@ async def delete_message(
 @app_commands.describe(
     user_id='用户 (机器人) ID',
     message_count='拉取最近消息的数量',
-    use_bulk_delete='是否使用批量删除 (无法删除 14 天前的消息)'
+    # use_bulk_delete='是否使用批量删除 (无法删除 14 天前的消息)'
 )
 async def clear_message(
     interaction: discord.Interaction,
     user_id: str,
     message_count: int,
-    use_bulk_delete: bool
+    # use_bulk_delete: bool
 ):
     await interaction.response.defer()
     # 获取目标用户 id
@@ -270,7 +270,7 @@ async def emoji_info(interaction: discord.Interaction):
 > **Commit ID**: `{Emoji["commit_id"]}`
 > **Commit Branch**: `{Emoji["commit_branch"]}`
 > **Emoji Count**: {len(Emoji["emojis"])}
-> **Emoji Source**: `{c.GHIMG_BASE}/`'''
+> **Emoji Source**: `{c.GHIMG_BASE}`'''
     )
 
 # ----- Send ------
@@ -316,11 +316,15 @@ async def emoji(
                 with io.BytesIO(img) as file:  # converts to file-like object
                     await interaction.response.send_message(
                         f'> *Emoji: [{name}]({imgurl})*',
-                        file=discord.File(file, name)
+                        file=discord.File(
+                            fp=file,
+                            filename=name,
+                            description=f'Emoji (sticker): {name}'
+                        )
                     )
     except Exception as error:
         await interaction.response.send_message(
-            f'> *Emoji: [{name}]({imgurl})*\n> **ERROR: `{error}`**'
+            f'> Fetch emoji [{name}]({imgurl}) **ERROR**: `{error}`'
         )
 
 # ========== Others ==========
