@@ -304,7 +304,7 @@ async def emoji(
 ):
     if name not in Emoji['emojis']:
         return await interaction.response.send_message(
-            ":x: **无效的表情包名称**，请从列表中选择",
+            ":x: **无效的表情包名称，请从列表中选择**",
             ephemeral=True
         )
 
@@ -315,7 +315,7 @@ async def emoji(
                 img = await resp.read()  # reads image from response
                 with io.BytesIO(img) as file:  # converts to file-like object
                     await interaction.response.send_message(
-                        f'> *Emoji: [{name}]({imgurl})*',
+                        '',
                         file=discord.File(
                             fp=file,
                             filename=name,
@@ -350,19 +350,23 @@ async def sync(ctx: commands.Context):
     await client.tree.sync()
     await ctx.send('**:white_check_mark: 斜杠指令列表已同步**')
 
-# ----------------- 原有消息处理（可选保留） -----------------
+# ----------------- 消息处理 -----------------
 
 
-# @client.event
-# async def on_message(message: discord.Message):
-#     # 必须添加这行才能让前缀命令正常工作
-#     await client.process_commands(message)
+@client.event
+async def on_message(message: discord.Message):
+    # 处理 To-Do List Bot 在 #sleepy-todo 的新消息
+    if (message.channel.id in c.TODO_CHANNELS) and (message.author.id == 782105629572464652) and (not message.embeds):
+        await message.delete()
 
-#     # 保留原有的随机数触发逻辑（可选）
-#     if message.author == client.user:
-#         return
-#     if 'random' in message.content and not message.content.startswith('!'):
-#         await message.channel.send(f'旧版触发：**{random.randint(1, 114514)}**')
+    # 必须添加这行才能让前缀命令正常工作
+    # await client.process_commands(message)
+
+    # 保留原有的随机数触发逻辑（可选）
+    # if message.author == client.user:
+    #     return
+    # if 'random' in message.content and not message.content.startswith('!'):
+    #     await message.channel.send(f'旧版触发：**{random.randint(1, 114514)}**')
 
 
 # ------------------- 登录 -------------------
