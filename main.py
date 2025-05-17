@@ -57,7 +57,8 @@ async def slash_random(
     except ValueError:
         await interaction.response.send_message(
             ':x: 请输入有效的整数范围！',
-            ephemeral=True
+            ephemeral=True,
+            delete_after=10
         )
 
 # ----- UUID -----
@@ -121,22 +122,26 @@ async def delete_message(
         except discord.Forbidden:
             await interaction.response.send_message(
                 f':x: **权限不足, 无法删除此消息** :x:',
-                ephemeral=not show_to_public
+                ephemeral=True,
+                delete_after=10
             )
         except discord.NotFound:
             await interaction.response.send_message(
                 f':x: **找不到 ID 为 `{message_id}` 的消息** :x:',
-                ephemeral=not show_to_public
+                ephemeral=True,
+                delete_after=10
             )
         except ValueError:
             await interaction.response.send_message(
                 f':x: **消息 ID 不为整数: `{message_id}`** :x:',
-                ephemeral=not show_to_public
+                ephemeral=True,
+                delete_after=10
             )
         except Exception as e:
             await interaction.response.send_message(
                 f':x: **删除消息 `{message_id}` 时出错: `{e}`** :x:',
-                ephemeral=not show_to_public
+                ephemeral=True,
+                delete_after=10
             )
         else:
             await interaction.response.send_message(
@@ -146,7 +151,8 @@ async def delete_message(
     else:
         await interaction.response.send_message(
             f':x: **未指定要删除的消息 (通过回复消息或指定消息 ID)** :x:',
-            ephemeral=not show_to_public
+            ephemeral=True,
+            delete_after=10
         )
 
 # ----- Clear Message - 清除 (某人) 的消息 -----
@@ -173,11 +179,13 @@ async def clear_message(
         user_id = int(user_id)
     except:
         await interaction.followup.send(
-            f':x: **用户 ID 不为整数: `{user_id}`** :x:'
+            f':x: **用户 ID 不为整数: `{user_id}`** :x:',
+            ephemeral=True,
+            delete_after=10
         )
     # 获取消息列表
     message_list = [msg async for msg in interaction.channel.history(limit=message_count)]
-    checked_messages = []
+    checked_messages: list[discord.Message] = []
     checked_count = 0
     success_count = 0
     for i in message_list:
@@ -245,7 +253,9 @@ async def emoji_update(interaction: discord.Interaction):
     if result:
         # Error
         await interaction.followup.send(
-            f'**:x: Update Emoji Failed: {result}**'
+            f'**:x: Update Emoji Failed: {result}**',
+            ephemeral=True,
+            delete_after=10
         )
     else:
         # Success
@@ -270,7 +280,7 @@ async def emoji_info(interaction: discord.Interaction):
 > **Commit ID**: `{Emoji["commit_id"]}`
 > **Commit Branch**: `{Emoji["commit_branch"]}`
 > **Emoji Count**: {len(Emoji["emojis"])}
-> **Emoji Source**: `{c.GHIMG_BASE}`'''
+> **Emoji Source**: [`{c.GHIMG_BASE}/emoji.json`]({c.GHIMG_BASE}/emoji.json?disable-cache)'''
     )
 
 # ----- Send ------
@@ -305,7 +315,8 @@ async def emoji(
     if name not in Emoji['emojis']:
         return await interaction.response.send_message(
             ":x: **无效的表情包名称，请从列表中选择**",
-            ephemeral=True
+            ephemeral=True,
+            delete_after=10
         )
 
     imgurl = f'{c.GHIMG_BASE}/{name}'
@@ -324,7 +335,9 @@ async def emoji(
                     )
     except Exception as error:
         await interaction.response.send_message(
-            f'> Fetch emoji [{name}]({imgurl}) **ERROR**: `{error}`'
+            f'> Fetch emoji [{name}]({imgurl}) **ERROR**: `{error}`',
+            ephemeral=True,
+            delete_after=10
         )
 
 # ========== Others ==========
@@ -357,7 +370,9 @@ async def sync(ctx: commands.Context):
 async def on_message(message: discord.Message):
     # 处理 To-Do List Bot 在 #sleepy-todo 的新消息
     if (message.channel.id in c.TODO_CHANNELS) and (message.author.id == 782105629572464652) and (not message.embeds):
-        await message.delete()
+        await message.delete(
+            delay=10
+        )
 
     # 必须添加这行才能让前缀命令正常工作
     # await client.process_commands(message)
