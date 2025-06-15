@@ -41,7 +41,7 @@ client = commands.Bot(
     min_num='最小值 (默认: 1)',
     max_num='最大值 (默认: 114514)'
 )
-async def slash_random(
+async def slash_random_number(
     interaction: discord.Interaction,
     min_num: int = 1,
     max_num: int = 114514
@@ -68,7 +68,7 @@ async def slash_random(
     name='uuid',
     description='生成一个 UUID'
 )
-async def slash_random(interaction: discord.Interaction):
+async def slash_random_uuid(interaction: discord.Interaction):
 
     await interaction.response.send_message(
         f':lock: 随机生成 UUID: **`{uuid()}`**\n> 此条消息仅你可见, 且将在 <t:{u.utc_timestamp()+c.SECRET_MESSAGE_DELETE_SECOND}:R> 删除',
@@ -116,8 +116,8 @@ async def delete_message(
     # elif message_id:
     if message_id:
         try:
-            message_id = int(message_id)
-            message = interaction.channel.get_partial_message(message_id)
+            message_id_int: int = int(message_id)
+            message = interaction.channel.get_partial_message(message_id_int) # type: ignore
             await message.delete()
         except discord.Forbidden:
             await interaction.response.send_message(
@@ -145,7 +145,7 @@ async def delete_message(
             )
         else:
             await interaction.response.send_message(
-                f':white_check_mark: **删除消息 `{message_id}` 成功!** :white_check_mark: ',
+                f':white_check_mark: **删除消息 `{message_id}` 成功!** :white_check_mark:',
                 ephemeral=not show_to_public
             )
     else:
@@ -176,20 +176,19 @@ async def clear_message(
     await interaction.response.defer()
     # 获取目标用户 id
     try:
-        user_id = int(user_id)
+        user_id_int: int = int(user_id)
     except:
         await interaction.followup.send(
             f':x: **用户 ID 不为整数: `{user_id}`** :x:',
-            ephemeral=True,
-            delete_after=10
+            ephemeral=True
         )
     # 获取消息列表
-    message_list = [msg async for msg in interaction.channel.history(limit=message_count)]
+    message_list = [msg async for msg in interaction.channel.history(limit=message_count)] # type: ignore
     checked_messages: list[discord.Message] = []
     checked_count = 0
     success_count = 0
     for i in message_list:
-        if i.author.id == user_id:
+        if i.author.id == user_id_int:
             # checked_messages.append(i.id if use_bulk_delete else i)
             checked_messages.append(i)
     checked_count = len(checked_messages)
@@ -202,7 +201,7 @@ async def clear_message(
         else:
             success_count += 1
     await interaction.followup.send(
-        f':broom: 清除用户 ID 为 **{user_id}** 的消息 :broom:' +
+        f':broom: 清除用户 ID 为 **{user_id_int}** 的消息 :broom:' +
         f'\n抓取最近消息 **{message_count}** 条, 其中此用户发送 **{checked_count}** 条, 成功删除 **{success_count}** 条'
     )
 
@@ -254,8 +253,7 @@ async def emoji_update(interaction: discord.Interaction):
         # Error
         await interaction.followup.send(
             f'**:x: Update Emoji Failed: {result}**',
-            ephemeral=True,
-            delete_after=10
+            ephemeral=True
         )
     else:
         # Success
@@ -358,7 +356,7 @@ async def sync(interaction: discord.Interaction):
 
 
 @client.command()
-async def sync(ctx: commands.Context):
+async def sync_ctx(ctx: commands.Context):
     await ctx.defer()
     await client.tree.sync()
     await ctx.send('**:white_check_mark: 斜杠指令列表已同步**')
@@ -368,11 +366,18 @@ async def sync(ctx: commands.Context):
 
 @client.event
 async def on_message(message: discord.Message):
-    # 处理 To-Do List Bot 在 #sleepy-todo 的新消息
-    if (message.channel.id in c.TODO_CHANNELS) and (message.author.id == 782105629572464652) and (not message.embeds):
+    # 处理桥接加入消息
+    if message.author.name == '[DC] @system':
         await message.delete(
-            delay=10
+            delay=2
         )
+    # 处理 To-Do List Bot 在 #sleepy-todo 的新消息
+    elif message.channel.id in c.TODO_CHANNELS:
+        if (message.author.id == 782105629572464652) and (not message.embeds):
+            await message.delete(
+                delay=2
+            )
+    
 
     # 必须添加这行才能让前缀命令正常工作
     # await client.process_commands(message)
@@ -394,6 +399,8 @@ async def on_ready():
     # await update_emoji_list()
     await client.tree.sync()
     print('斜杠命令已同步')
+    await update_emoji_list()
+    print('表情列表已同步')
 
 
 client.run(c.TOKEN)
