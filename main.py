@@ -117,7 +117,7 @@ async def delete_message(
     if message_id:
         try:
             message_id_int: int = int(message_id)
-            message = interaction.channel.get_partial_message(message_id_int) # type: ignore
+            message = interaction.channel.get_partial_message(message_id_int)  # type: ignore
             await message.delete()
         except discord.Forbidden:
             await interaction.response.send_message(
@@ -183,7 +183,7 @@ async def clear_message(
             ephemeral=True
         )
     # 获取消息列表
-    message_list = [msg async for msg in interaction.channel.history(limit=message_count)] # type: ignore
+    message_list = [msg async for msg in interaction.channel.history(limit=message_count)]  # type: ignore
     checked_messages: list[discord.Message] = []
     checked_count = 0
     success_count = 0
@@ -260,7 +260,7 @@ async def emoji_update(interaction: discord.Interaction):
         await interaction.followup.send(
             f'''**:white_check_mark: Update Emoji Success!**
 > **Build Time**: <t:{Emoji["utc_build_timestamp"]}:f>
-> **Commit**: `{Emoji["commit_id"]}`
+> **Commit**: [`{Emoji["commit_id"]}`](https://github.com/siiway/ghimg/commit/{Emoji["commit_id"]})
 > **Emojis**: `{len(Emoji["emojis"])}`'''
         )
 
@@ -275,10 +275,10 @@ async def emoji_info(interaction: discord.Interaction):
 > **Build Time**: <t:{Emoji["utc_build_timestamp"]}:f>
 > **Build Time String**: `{Emoji["utc_build_time"]}`
 > **Build on CF Pages**: {"Yes" if Emoji["is_cf_pages"] else "No"}
-> **Commit ID**: `{Emoji["commit_id"]}`
+> **Commit ID**: [`{Emoji["commit_id"]}`](https://github.com/siiway/ghimg/commit/{Emoji["commit_id"]})
 > **Commit Branch**: `{Emoji["commit_branch"]}`
 > **Emoji Count**: {len(Emoji["emojis"])}
-> **Emoji Source**: [`{c.GHIMG_BASE}/emoji.json`]({c.GHIMG_BASE}/emoji.json?disable-cache)'''
+> **Emoji Source**: [`emoji.json`]({c.GHIMG_BASE}/emoji.json?disable-cache)'''
     )
 
 # ----- Send ------
@@ -377,7 +377,6 @@ async def on_message(message: discord.Message):
             await message.delete(
                 delay=2
             )
-    
 
     # 必须添加这行才能让前缀命令正常工作
     # await client.process_commands(message)
