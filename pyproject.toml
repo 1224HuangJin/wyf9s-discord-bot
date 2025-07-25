@@ -1,0 +1,16 @@
+[project]
+name = "wyf9s-discord-bot"
+version = "0.1.0"
+authors = [{ name = "wyf9", email = "wyf9@wyf9.top" }]
+description = "wyf9's Discord Bot using Discord.py"
+readme = "README.md"
+requires-python = ">=3.13"
+dependencies = [
+    # Discord API
+    "discord-py>=2.5.2",
+    # Config Parsing
+    "pydantic>=2.11.7",
+    "pyyaml>=6.0.2",
+    # Network Resources
+    "aiohttp>=3.12.14",
+]

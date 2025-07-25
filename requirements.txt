@@ -1,2 +1,10 @@
+# Discord API
 discord.py
+
+# 外部请求
 requests
+aiohttp
+
+# 配置文件
+pyyaml
+pydantic
