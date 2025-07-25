@@ -1,3 +1,8 @@
+# Config file
+config.yaml
+
+# ========== Generated ==========
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]

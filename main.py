@@ -1,30 +1,74 @@
 # coding: utf-8
 
-# Basic
+# region import
+
+import io
+import random
+from uuid import uuid4 as uuid
+from datetime import datetime
+import logging
+import asyncio
+
 import discord
 from discord import app_commands
 from discord.ext import commands
-# Networking
 import aiohttp
-import requests
-# Processing
-import io
-# Function
-import random
-from uuid import uuid4 as uuid
-# ...
-import config as c  # type: ignore
+
+from config import Config
 import utils as u
 
-# 设置机器人需要的权限
+# endregion import
+
+# region init
+
+# init logger
+l = logging.getLogger(__name__)
+logging.basicConfig(level=logging.DEBUG)
+root_logger = logging.getLogger()
+root_logger.handlers.clear()  # clear default handler
+# set stream handler
+shandler = logging.StreamHandler()
+shandler.setFormatter(u.CustomFormatter(colorful=True))
+root_logger.addHandler(shandler)
+
+# init config
+c = Config().config
+
+# continue init logger
+root_logger.level = logging.DEBUG if c.debug else logging.INFO  # set log level
+# reset stream handler
+root_logger.handlers.clear()
+shandler = logging.StreamHandler()
+shandler.setFormatter(u.CustomFormatter(colorful=True))
+root_logger.addHandler(shandler)
+# set file handler
+if c.log_file:
+    log_file_path = u.get_path(c.log_file)
+    l.info(f'Saving logs to {log_file_path}')
+    fhandler = logging.FileHandler(log_file_path, encoding='utf-8', errors='ignore')
+    fhandler.setFormatter(u.CustomFormatter(colorful=False))
+    root_logger.addHandler(fhandler)
+
+# endregion init
+
+# region setup
+
+# set permission
 intents = discord.Intents.default()
 intents.message_content = True
 
-# 创建带命令前缀的机器人实例（这里用 \ 作为前缀）
-client = commands.Bot(
-    command_prefix=c.COMMAND_PREFIX,
-    intents=intents
-)
+if c.proxy:
+    client = commands.Bot(
+        command_prefix=c.command_prefix,
+        intents=intents,
+        proxy=c.proxy
+    )
+else:
+    client = commands.Bot(
+        command_prefix=c.command_prefix,
+        intents=intents
+    )
+# endregion setup
 
 # ------------- ### 斜杠命令 ### -------------
 
@@ -69,11 +113,11 @@ async def slash_random_number(
     description='生成一个 UUID'
 )
 async def slash_random_uuid(interaction: discord.Interaction):
-
+    now = datetime.now().timestamp()
     await interaction.response.send_message(
-        f':lock: 随机生成 UUID: **`{uuid()}`**\n> 此条消息仅你可见, 且将在 <t:{u.utc_timestamp()+c.SECRET_MESSAGE_DELETE_SECOND}:R> 删除',
+        f':lock: 随机生成 UUID: **`{uuid()}`**\n> 此条消息仅你可见, 且将在 <t:{now+c.secret_message_delay}:R> 删除',
         ephemeral=True,
-        delete_after=c.SECRET_MESSAGE_DELETE_SECOND
+        delete_after=c.secret_message_delay
     )
 
 # ----- Delete Message - 删除消息 -----
@@ -212,34 +256,26 @@ async def clear_message(
 # rollback
 Emoji: dict = {
     "utc_build_timestamp": 0,
-    "utc_build_time": "1970-01-01 00:00:00.000000+00:00",
     "is_cf_pages": False,
     "commit_id": None,
     "commit_branch": None,
-    "emojis": [
-        "three_color_image.webp",
-        "emm.webp"
-    ]
+    "emojis": []
 }
 
 
-async def update_emoji_list():
+async def update_emoji_list() -> bool:
     global Emoji
-    try:
-        print('Updating emoji list...')
-        resp = requests.get(f'{c.GHIMG_BASE}/emoji.json?disable-cache')
-        Emoji = resp.json()
-        if len(Emoji['emojis']) < 2:
-            Emoji['emojis'] = [
-                "three_color_image.webp",
-                "emm.webp"
-            ]
+    l.info('[emoji] Updating emoji list...')
+    resp = await u.get_json(f'{c.emoji.base_url}/emoji.json?disable-cache')
+    if resp:
+        Emoji = resp
         await client.tree.sync()
-        print('Emoji list Synced √')
-    except Exception as e:
-        return e
+        l.info(f'[emoji] Emoji list Synced √ (count: {len(Emoji["emojis"])})')
+        l.debug(f'[emoji] {Emoji["emojis"]}')
+        return True
     else:
-        return None
+        l.warning('[emoji] Emoji list sync failed!')
+        return False
 
 
 @client.tree.command(
@@ -273,12 +309,11 @@ async def emoji_info(interaction: discord.Interaction):
     await interaction.response.send_message(
         f'''**:information_source: Emojis Info**
 > **Build Time**: <t:{Emoji["utc_build_timestamp"]}:f>
-> **Build Time String**: `{Emoji["utc_build_time"]}`
 > **Build on CF Pages**: {"Yes" if Emoji["is_cf_pages"] else "No"}
 > **Commit ID**: [`{Emoji["commit_id"]}`](https://github.com/siiway/ghimg/commit/{Emoji["commit_id"]})
 > **Commit Branch**: `{Emoji["commit_branch"]}`
 > **Emoji Count**: {len(Emoji["emojis"])}
-> **Emoji Source**: [`emoji.json`]({c.GHIMG_BASE}/emoji.json?disable-cache)'''
+> **Emoji Source**: [`emoji.json`]({c.emoji.base_url}/emoji.json?disable-cache)'''
     )
 
 # ----- Send ------
@@ -296,7 +331,7 @@ async def emoji_autocomplete(
         app_commands.Choice(name=name, value=name)
         for name in Emoji['emojis']
         if current.lower() in name.lower()  # 不区分大小写搜索
-    ][:c.MAX_RESULTS]  # 最多显示 ?? 个选项
+    ][:c.emoji.max_results]  # 最多显示 ?? 个选项
     return filtered
 
 
@@ -317,7 +352,7 @@ async def emoji(
             delete_after=10
         )
 
-    imgurl = f'{c.GHIMG_BASE}/{name}'
+    imgurl = f'{c.emoji.base_url}/{name}'
     try:
         async with aiohttp.ClientSession() as session:  # creates session
             async with session.get(imgurl) as resp:  # gets image from url
@@ -372,10 +407,10 @@ async def on_message(message: discord.Message):
             delay=2
         )
     # 处理 To-Do List Bot 在 #sleepy-todo 的新消息
-    elif message.channel.id in c.TODO_CHANNELS:
-        if (message.author.id == 782105629572464652) and (not message.embeds):
+    elif message.channel.id in c.rmtodo.todo_channels:
+        if (message.author.id == c.rmtodo.author_id) and (not message.embeds):
             await message.delete(
-                delay=2
+                delay=c.rmtodo.remove_delay
             )
 
     # 必须添加这行才能让前缀命令正常工作
@@ -393,13 +428,12 @@ async def on_message(message: discord.Message):
 
 @client.event
 async def on_ready():
-    print(f'已登录为 {client.user}')
-    # 同步斜杠命令到服务器（开发时建议在需要时手动调用）
-    # await update_emoji_list()
+    l.info(f'Logged in as {client.user} ({client.user.id if client.user else "0"})')
     await client.tree.sync()
-    print('斜杠命令已同步')
-    await update_emoji_list()
-    print('表情列表已同步')
+    l.info('Slash commands synced.')
+    if c.emoji.enabled:
+        await update_emoji_list()
+        l.info('Emoji list synced.')
 
 
-client.run(c.TOKEN)
+client.run(c.token)
