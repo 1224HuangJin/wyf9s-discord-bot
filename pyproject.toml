@@ -15,4 +15,6 @@ dependencies = [
     "aiohttp>=3.12.14",
     # Logging
     "colorama>=0.4.6",
+    # jmcomic module
+    "jmcomic>=2.6.4",
 ]

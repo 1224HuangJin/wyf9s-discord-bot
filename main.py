@@ -7,7 +7,6 @@ import random
 from uuid import uuid4 as uuid
 from datetime import datetime
 import logging
-import asyncio
 
 import discord
 from discord import app_commands
@@ -113,7 +112,7 @@ async def slash_random_number(
     description='生成一个 UUID'
 )
 async def slash_random_uuid(interaction: discord.Interaction):
-    now = datetime.now().timestamp()
+    now = int(datetime.now().timestamp())
     await interaction.response.send_message(
         f':lock: 随机生成 UUID: **`{uuid()}`**\n> 此条消息仅你可见, 且将在 <t:{now+c.secret_message_delay}:R> 删除',
         ephemeral=True,
@@ -390,7 +389,7 @@ async def sync(interaction: discord.Interaction):
 # ----------------- 前缀命令 -----------------
 
 
-@client.command()
+@client.command(name='sync')
 async def sync_ctx(ctx: commands.Context):
     await ctx.defer()
     await client.tree.sync()
@@ -407,11 +406,10 @@ async def on_message(message: discord.Message):
             delay=2
         )
     # 处理 To-Do List Bot 在 #sleepy-todo 的新消息
-    elif message.channel.id in c.rmtodo.todo_channels:
-        if (message.author.id == c.rmtodo.author_id) and (not message.embeds):
-            await message.delete(
-                delay=c.rmtodo.remove_delay
-            )
+    elif (message.channel.id in c.rmtodo.todo_channels) and (message.author.id == c.rmtodo.author_id) and (not message.embeds):
+        await message.delete(
+            delay=c.rmtodo.remove_delay
+        )
 
     # 必须添加这行才能让前缀命令正常工作
     # await client.process_commands(message)
@@ -428,7 +426,7 @@ async def on_message(message: discord.Message):
 
 @client.event
 async def on_ready():
-    l.info(f'Logged in as {client.user} ({client.user.id if client.user else "0"})')
+    l.info(f'Logged in as {client.user} ({client.user.id if client.user else "unknown"})')
     await client.tree.sync()
     l.info('Slash commands synced.')
     if c.emoji.enabled:

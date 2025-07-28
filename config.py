@@ -8,7 +8,6 @@
 # ]
 from pydantic import BaseModel
 from yaml import safe_load
-import os
 from logging import getLogger
 
 import utils as u
