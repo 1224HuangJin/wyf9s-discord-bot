@@ -11,10 +11,11 @@ import logging
 import discord
 from discord import app_commands
 from discord.ext import commands
-import aiohttp
 
 from config import Config
 import utils as u
+
+from modules.emoji import EmojiModule
 
 # endregion import
 
@@ -72,6 +73,12 @@ client = commands.Bot(
     proxy=c.proxy
 )
 # endregion setup
+
+# region modules
+if c.emoji.enabled:
+    emoji_module = EmojiModule(config=c, client=client)
+
+# endregion modules
 
 # ------------- ### 斜杠命令 ### -------------
 
@@ -252,129 +259,6 @@ async def clear_message(
         f'\n抓取最近消息 **{message_count}** 条, 其中此用户发送 **{checked_count}** 条, 成功删除 **{success_count}** 条'
     )
 
-# ========== Emoji ==========
-
-# ----- Update -----
-
-# rollback
-Emoji: dict = {
-    "utc_build_timestamp": 0,
-    "is_cf_pages": False,
-    "commit_id": None,
-    "commit_branch": None,
-    "emojis": []
-}
-
-
-async def update_emoji_list() -> tuple[bool, str]:
-    global Emoji
-    l.info('[emoji] Updating emoji list...')
-    succ, resp, err = await u.get_json(f'{c.emoji.base_url}/emoji.json?disable-cache')
-    if succ:
-        Emoji = resp
-        await client.tree.sync()
-        l.info(f'[emoji] Emoji list Synced √ (count: {len(Emoji["emojis"])})')
-        l.debug(f'[emoji] {Emoji["emojis"]}')
-        return True, ''
-    else:
-        l.warning('[emoji] Emoji list sync failed!')
-        return False, err
-
-
-@client.tree.command(
-    name='emoji_update',
-    description='更新表情包库数据'
-)
-async def emoji_update(interaction: discord.Interaction):
-    await interaction.response.defer()
-    succ, err = await update_emoji_list()
-    if succ:
-        # Success
-        await interaction.followup.send(
-            f'''**:white_check_mark: Update Emoji Success!**
-> **Build Time**: <t:{Emoji["utc_build_timestamp"]}:f>
-> **Commit**: [`{Emoji["commit_id"]}`](https://github.com/siiway/ghimg/commit/{Emoji["commit_id"]})
-> **Emojis**: `{len(Emoji["emojis"])}`'''
-        )
-    else:
-        # Error
-        await interaction.followup.send(
-            f'**:x: Update Emoji Failed: {err}**',
-            ephemeral=True
-        )
-
-
-@client.tree.command(
-    name='emoji_info',
-    description='查看表情包库相关信息'
-)
-async def emoji_info(interaction: discord.Interaction):
-    await interaction.response.send_message(
-        f'''**:information_source: Emojis Info**
-> **Build Time**: <t:{Emoji["utc_build_timestamp"]}:f>
-> **Build on CF Pages**: {"Yes" if Emoji["is_cf_pages"] else "No"}
-> **Commit ID**: [`{Emoji["commit_id"]}`](https://github.com/siiway/ghimg/commit/{Emoji["commit_id"]})
-> **Commit Branch**: `{Emoji["commit_branch"]}`
-> **Emoji Count**: {len(Emoji["emojis"])}
-> **Emoji Source**: [`emoji.json`]({c.emoji.base_url}/emoji.json?disable-cache)'''
-    )
-
-# ----- Send ------
-
-
-async def emoji_autocomplete(
-    interaction: discord.Interaction,
-    current: str  # 用户当前输入的内容
-) -> list[app_commands.Choice[str]]:
-    '''
-    表情包获取自动生成下拉菜单
-    '''
-    # 根据输入内容过滤选项
-    filtered = [
-        app_commands.Choice(name=name, value=name)
-        for name in Emoji['emojis']
-        if current.lower() in name.lower()  # 不区分大小写搜索
-    ][:c.emoji.max_results]  # 最多显示 ?? 个选项
-    return filtered
-
-
-@client.tree.command(
-    name='emoji',
-    description='使用库中的表情包'
-)
-@app_commands.describe(name="输入名称搜索表情包")
-@app_commands.autocomplete(name=emoji_autocomplete)
-async def emoji(
-    interaction: discord.Interaction,
-    name: str
-):
-    if name not in Emoji['emojis']:
-        return await interaction.response.send_message(
-            ":x: **无效的表情包名称，请从列表中选择**",
-            ephemeral=True,
-            delete_after=10
-        )
-
-    imgurl = f'{c.emoji.base_url}/{name}'
-    try:
-        async with aiohttp.ClientSession() as session:  # creates session
-            async with session.get(imgurl) as resp:  # gets image from url
-                img = await resp.read()  # reads image from response
-                with io.BytesIO(img) as file:  # converts to file-like object
-                    await interaction.response.send_message(
-                        '',
-                        file=discord.File(
-                            fp=file,
-                            filename=name,
-                            description=f'Emoji (sticker): {name}'
-                        )
-                    )
-    except Exception as error:
-        await interaction.response.send_message(
-            f'> Fetch emoji [{name}]({imgurl}) **ERROR**: `{error}`',
-            ephemeral=True,
-            delete_after=10
-        )
 
 # ========== Others ==========
 
@@ -416,15 +300,6 @@ async def on_message(message: discord.Message):
                 delay=c.rmtodo.remove_delay
             )
 
-    # 必须添加这行才能让前缀命令正常工作
-    # await client.process_commands(message)
-
-    # 保留原有的随机数触发逻辑（可选）
-    # if message.author == client.user:
-    #     return
-    # if 'random' in message.content and not message.content.startswith('!'):
-    #     await message.channel.send(f'旧版触发：**{random.randint(1, 114514)}**')
-
 
 # ------------------- 登录 -------------------
 
@@ -436,7 +311,7 @@ async def on_ready():
     await client.tree.sync()
     l.info('Slash commands synced.')
     if c.emoji.enabled:
-        succ, err = await update_emoji_list()
+        succ, err = await emoji_module.update_emoji_list()
         if succ:
             l.info('Emoji list synced.')
         else:
