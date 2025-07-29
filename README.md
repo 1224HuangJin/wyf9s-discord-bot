@@ -5,6 +5,5 @@
 - [x] 删除消息
 - [x] 使用~~有海那么多~~的表情包，并查看详细信息
 - [x] 生成随机数和UUID
-- [ ] (未来的功能)简单的discord音乐功能
-
-
+- [ ] ~~(未来的功能)简单的discord音乐功能~~ https://github.com/siiway/CNMusicBot
+- [ ] JMComic 本子下载

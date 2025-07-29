@@ -3,8 +3,8 @@ import time
 from pathlib import Path
 import os
 from datetime import datetime
-from logging import Formatter
-from logging import getLogger
+from logging import Formatter, getLogger
+import typing as t
 
 from colorama import Fore, Style
 import aiohttp
@@ -95,19 +95,23 @@ def relative_path(path: str) -> str:
     return os.path.relpath(path)
 
 
-async def get_json(url: str, **params) -> dict | None:
+async def get_json(url: str, **params) -> tuple[bool, dict, str]:
     '''
     使用 aiohttp 异步请求 json 资源
 
     :param url: 请求的 url
     :param params: 其他传递给 `session.get` 的参数
-    :return dict: (成功) 解析后的 json 数据
-    :return None: (失败) 无
+    :return bool: success
+    :return dict: response
+    :return str: error
     '''
     try:
         async with aiohttp.ClientSession() as sess:
             async with sess.get(url, **params) as resp:
-                return await resp.json()
+                if resp.status == 200:
+                    return True, await resp.json(), ''
+                else:
+                    raise Exception(f'Status code isn\'t 200: {resp.status}')
     except Exception as e:
         l.warning(f'[get_json] Request {url} error: {e}')
-        return None
+        return False, {}, str(e)

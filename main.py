@@ -22,13 +22,17 @@ import utils as u
 
 # init logger
 l = logging.getLogger(__name__)
+l_dc = logging.getLogger('discord')
+
 logging.basicConfig(level=logging.DEBUG)
 root_logger = logging.getLogger()
+l_dc.handlers.clear()
 root_logger.handlers.clear()  # clear default handler
 # set stream handler
 shandler = logging.StreamHandler()
 shandler.setFormatter(u.CustomFormatter(colorful=True))
 root_logger.addHandler(shandler)
+l_dc.addHandler(shandler)
 
 # init config
 c = Config().config
@@ -37,9 +41,11 @@ c = Config().config
 root_logger.level = logging.DEBUG if c.debug else logging.INFO  # set log level
 # reset stream handler
 root_logger.handlers.clear()
+l_dc.handlers.clear()
 shandler = logging.StreamHandler()
 shandler.setFormatter(u.CustomFormatter(colorful=True))
 root_logger.addHandler(shandler)
+l_dc.addHandler(shandler)
 # set file handler
 if c.log_file:
     log_file_path = u.get_path(c.log_file)
@@ -47,6 +53,10 @@ if c.log_file:
     fhandler = logging.FileHandler(log_file_path, encoding='utf-8', errors='ignore')
     fhandler.setFormatter(u.CustomFormatter(colorful=False))
     root_logger.addHandler(fhandler)
+    l_dc.addHandler(fhandler)
+# set discord.http handler
+l_dchttp = logging.getLogger('discord.http')
+l_dchttp.setLevel(logging.INFO)
 
 # endregion init
 
@@ -56,17 +66,11 @@ if c.log_file:
 intents = discord.Intents.default()
 intents.message_content = True
 
-if c.proxy:
-    client = commands.Bot(
-        command_prefix=c.command_prefix,
-        intents=intents,
-        proxy=c.proxy
-    )
-else:
-    client = commands.Bot(
-        command_prefix=c.command_prefix,
-        intents=intents
-    )
+client = commands.Bot(
+    command_prefix=c.command_prefix,
+    intents=intents,
+    proxy=c.proxy
+)
 # endregion setup
 
 # ------------- ### 斜杠命令 ### -------------
@@ -262,19 +266,19 @@ Emoji: dict = {
 }
 
 
-async def update_emoji_list() -> bool:
+async def update_emoji_list() -> tuple[bool, str]:
     global Emoji
     l.info('[emoji] Updating emoji list...')
-    resp = await u.get_json(f'{c.emoji.base_url}/emoji.json?disable-cache')
-    if resp:
+    succ, resp, err = await u.get_json(f'{c.emoji.base_url}/emoji.json?disable-cache')
+    if succ:
         Emoji = resp
         await client.tree.sync()
         l.info(f'[emoji] Emoji list Synced √ (count: {len(Emoji["emojis"])})')
         l.debug(f'[emoji] {Emoji["emojis"]}')
-        return True
+        return True, ''
     else:
         l.warning('[emoji] Emoji list sync failed!')
-        return False
+        return False, err
 
 
 @client.tree.command(
@@ -283,20 +287,20 @@ async def update_emoji_list() -> bool:
 )
 async def emoji_update(interaction: discord.Interaction):
     await interaction.response.defer()
-    result = await update_emoji_list()
-    if result:
-        # Error
-        await interaction.followup.send(
-            f'**:x: Update Emoji Failed: {result}**',
-            ephemeral=True
-        )
-    else:
+    succ, err = await update_emoji_list()
+    if succ:
         # Success
         await interaction.followup.send(
             f'''**:white_check_mark: Update Emoji Success!**
 > **Build Time**: <t:{Emoji["utc_build_timestamp"]}:f>
 > **Commit**: [`{Emoji["commit_id"]}`](https://github.com/siiway/ghimg/commit/{Emoji["commit_id"]})
 > **Emojis**: `{len(Emoji["emojis"])}`'''
+        )
+    else:
+        # Error
+        await interaction.followup.send(
+            f'**:x: Update Emoji Failed: {err}**',
+            ephemeral=True
         )
 
 
@@ -389,8 +393,8 @@ async def sync(interaction: discord.Interaction):
 # ----------------- 前缀命令 -----------------
 
 
-@client.command(name='sync')
-async def sync_ctx(ctx: commands.Context):
+@client.command()
+async def sync_commands(ctx: commands.Context):
     await ctx.defer()
     await client.tree.sync()
     await ctx.send('**:white_check_mark: 斜杠指令列表已同步**')
@@ -400,16 +404,17 @@ async def sync_ctx(ctx: commands.Context):
 
 @client.event
 async def on_message(message: discord.Message):
-    # 处理桥接加入消息
-    if message.author.name == '[DC] @system':
-        await message.delete(
-            delay=2
-        )
-    # 处理 To-Do List Bot 在 #sleepy-todo 的新消息
-    elif (message.channel.id in c.rmtodo.todo_channels) and (message.author.id == c.rmtodo.author_id) and (not message.embeds):
-        await message.delete(
-            delay=c.rmtodo.remove_delay
-        )
+    if c.rmtodo.enabled:
+        # 处理桥接加入消息
+        if message.author.name == '[DC] @system':
+            await message.delete(
+                delay=2
+            )
+        # 处理 To-Do List Bot 在 #sleepy-todo 的新消息
+        elif (message.channel.id in c.rmtodo.todo_channels) and (message.author.id == c.rmtodo.author_id) and (not message.embeds):
+            await message.delete(
+                delay=c.rmtodo.remove_delay
+            )
 
     # 必须添加这行才能让前缀命令正常工作
     # await client.process_commands(message)
@@ -423,6 +428,7 @@ async def on_message(message: discord.Message):
 
 # ------------------- 登录 -------------------
 
+# region login
 
 @client.event
 async def on_ready():
@@ -430,8 +436,13 @@ async def on_ready():
     await client.tree.sync()
     l.info('Slash commands synced.')
     if c.emoji.enabled:
-        await update_emoji_list()
-        l.info('Emoji list synced.')
+        succ, err = await update_emoji_list()
+        if succ:
+            l.info('Emoji list synced.')
+        else:
+            l.warning(f'Emoji list sync failed: {err}')
 
 
 client.run(c.token)
+
+# endregion end
