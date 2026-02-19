@@ -111,6 +111,22 @@ class _AutoRemoveMessageConfigModel(BaseModel):
     '''
 
 
+class _VoiceChannelConfigModel(BaseModel):
+    '''
+    语音频道控制模块配置
+    `voicechannel`
+    '''
+
+    enabled: bool = True
+    '''是否启用语音频道控制模块'''
+
+    allowed_user_ids: list[int] = []
+    '''
+    允许使用 join/leave vc 命令的用户 ID 列表
+    - 留空则所有人可用
+    '''
+
+
 class ConfigModel(BaseModel):
     '''
     基础配置
@@ -132,6 +148,7 @@ class ConfigModel(BaseModel):
     emoji: _EmojiConfigModel = _EmojiConfigModel()
     rmtodo: _AutoRemoveTodoConfigModel = _AutoRemoveTodoConfigModel()
     rmmsg: _AutoRemoveMessageConfigModel = _AutoRemoveMessageConfigModel()
+    voicechannel: _VoiceChannelConfigModel = _VoiceChannelConfigModel()
 
 
 class Config:

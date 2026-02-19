@@ -53,6 +53,7 @@ import utils as u
 from modules.emoji import EmojiModule
 from modules.tools import ToolsModule
 from modules.manage import ManageModule
+from modules.voice import VoiceChannelModule
 
 # endregion import
 
@@ -131,6 +132,9 @@ if c.emoji.enabled:
 
 tools_module = ToolsModule(config=c, client=client)
 manage_module = ManageModule(config=c, client=client)
+
+if c.voicechannel.enabled:
+    voice_channel_module = VoiceChannelModule(config=c, client=client)
 
 # endregion modules
 

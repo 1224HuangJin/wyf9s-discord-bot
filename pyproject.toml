@@ -15,4 +15,6 @@ dependencies = [
     "aiohttp>=3.12.14",
     # Logging
     "loguru>=0.7.3",
+    # Voice Handling
+    "pynacl>=1.6.2",
 ]
