@@ -68,7 +68,7 @@ class ToolsModule:
         ):
             now = int(datetime.now().timestamp())
             await interaction.response.send_message(
-                f':lock: 随机生成 UUID: **```{uuid()}```**\n> 此条消息仅你可见, 且将在 <t:{now+delete_after}:R> 删除',
+                f':lock: 随机生成 UUID: **```{uuid()}```**> 此条消息仅你可见, 且将在 <t:{now+delete_after}:R> 删除',
                 ephemeral=True,
                 delete_after=delete_after
             )
@@ -136,43 +136,96 @@ class ToolsModule:
             description='清除 (某人) 的消息'
         )
         @app_commands.describe(
-            user_id='用户 (机器人) ID',
-            message_count='拉取最近消息的数量',
+            user='要清除消息的用户',
+            message_count='拉取最近消息的数量 (每个频道)',
+            scope='清除消息的范围: "channel" (单个频道, 默认) 或 "server" (整个服务器)',
+            channel='指定频道 (仅在 scope=channel 时生效, 未设置则使用指令所在频道)',
         )
         async def clear_message(
             interaction: discord.Interaction,
-            user_id: str,
+            user: discord.User,
             message_count: int,
+            scope: str = 'channel',
+            channel: discord.TextChannel | None = None
         ):
             await interaction.response.defer()
-            # 获取目标用户 id
-            try:
-                user_id_int: int = int(user_id)
-            except:
+
+            # 验证 scope 参数
+            scope = scope.lower().strip()
+            if scope not in ['channel', 'server']:
                 await interaction.followup.send(
-                    f':x: **用户 ID 不为整数: `{user_id}`** :x:',
+                    f':x: **无效的 scope 参数: `{scope}`, 只支持 "channel" 或 "server"** :x:',
                     ephemeral=True
                 )
-            # 获取消息列表
-            message_list = [msg async for msg in interaction.channel.history(limit=message_count)]  # type: ignore
-            checked_messages: list[discord.Message] = []
-            checked_count = 0
-            success_count = 0
-            for i in message_list:
-                if i.author.id == user_id_int:
-                    checked_messages.append(i)
-            checked_count = len(checked_messages)
-            # 删除消息 (普通删除)
-            for i in checked_messages:
-                try:
-                    await i.delete()
-                except:
-                    pass
+                return
+
+            # 确定目标频道列表
+            target_channels: list[discord.TextChannel] = []
+
+            if scope == 'channel':
+                # 单个频道
+                if channel:
+                    target_channels.append(channel)
                 else:
-                    success_count += 1
+                    # 使用指令所在频道
+                    target_channels.append(interaction.channel)  # type: ignore
+            else:  # scope == 'server'
+                # 整个服务器的所有文本频道
+                target_channels = [ch for ch in interaction.guild.channels if isinstance(ch, discord.TextChannel)]  # type: ignore
+
+            # 收集要删除的消息
+            checked_messages: list[discord.Message] = []
+
+            for channel in target_channels:
+                try:
+                    message_list = [msg async for msg in channel.history(limit=message_count)]
+                    for msg in message_list:
+                        if msg.author.id == user.id:
+                            checked_messages.append(msg)
+                except discord.Forbidden:
+                    # l.warning(f'无权限访问频道 {channel.name} ({channel.id})')
+                    pass
+                except Exception as e:
+                    l.warning(f'获取频道 {channel.name} ({channel.id}) 消息时出错: {e}')
+
+            checked_count = len(checked_messages)
+
+            if checked_count == 0:
+                await interaction.followup.send(
+                    f':broom: 未找到用户 **{user.mention}** 的消息'
+                )
+                return
+
+            # 使用 bulk_delete API 删除消息 (Discord API 限制最多一次删除 100 条)
+            success_count = 0
+            failed_count = 0
+
+            # 按批次删除 (一次最多 100 条)
+            for i in range(0, len(checked_messages), 100):
+                batch = checked_messages[i:i+100]
+                try:
+                    await interaction.channel.delete_messages(batch)  # type: ignore
+                    success_count += len(batch)
+                except discord.Forbidden:
+                    await interaction.followup.send(
+                        f':x: **权限不足, 无法删除消息** :x:',
+                        ephemeral=True
+                    )
+                    return
+                except Exception as e:
+                    l.error(f'批量删除消息时出错: {e}')
+                    failed_count += len(batch)
+
+            # 生成统计信息
+            scope_text = '频道' if scope == 'channel' else '服务器'
+            channel_info = f' (频道: {getattr(interaction.channel, 'name', '[DM Channel]')})' if scope == 'channel' else ''
+
             await interaction.followup.send(
-                f':broom: 清除用户 ID 为 **{user_id_int}** 的消息 :broom:' +
-                f'\n抓取最近消息 **{message_count}** 条, 其中此用户发送 **{checked_count}** 条, 成功删除 **{success_count}** 条'
+                f':broom: 清除用户 **{user.mention}** 的消息 :broom:' +
+                f'\n范围: **{scope_text}**{channel_info}' +
+                f'\n查询消息数: **{message_count} x {len(target_channels)}** 条, 匹配用户消息 **{checked_count}** 条' +
+                f'\n成功删除: **{success_count}** 条' +
+                (f', 失败: **{failed_count}** 条' if failed_count > 0 else '')
             )
 
         # ========== Others ==========

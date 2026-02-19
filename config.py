@@ -40,6 +40,19 @@ class _AutoRemoveTodoConfigModel(BaseModel):
     remove_delay: int = 3
     '''移除前等待秒数'''
 
+class _AutoRemoveMessageConfigModel(BaseModel):
+    enabled: bool = False
+    '''
+    是否启用
+    '''
+
+    nicks: list[str] = []
+    '''
+    要自动删除的昵称列表
+    - 比如 `[DC] @system`
+    - 支持通配符
+    '''
+
 class ConfigModel(BaseModel):
     '''
     基础配置
@@ -64,9 +77,8 @@ class ConfigModel(BaseModel):
     '''私密消息删除延迟 (秒)'''
 
     emoji: _EmojiConfigModel = _EmojiConfigModel()
-
     rmtodo: _AutoRemoveTodoConfigModel = _AutoRemoveTodoConfigModel()
-
+    rmmsg: _AutoRemoveMessageConfigModel = _AutoRemoveMessageConfigModel()
 
 class Config:
     '''
