@@ -1,10 +1,66 @@
-from pydantic import BaseModel
-from yaml import safe_load
 from logging import getLogger
+import typing as t
+
+from pydantic import BaseModel, field_validator
+from yaml import safe_load
 
 import utils as u
 
 l = getLogger(__name__)
+
+
+class _LoggingConfigModel(BaseModel):
+    '''
+    日志配置 Model
+    '''
+
+    level: t.Literal['DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL'] = 'INFO'
+    '''
+    日志等级
+    - DEBUG
+    - INFO
+    - WARNING
+    - ERROR
+    - CRITICAL
+    '''
+
+    file: str | None = 'logs/{time:YYYY-MM-DD}.log'
+    '''
+    日志文件保存格式 (for Loguru)
+    - 设置为 None 以禁用
+    '''
+
+    file_level: t.Literal['DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL', None] = 'INFO'
+    '''
+    单独设置日志文件中的日志等级, 如设置为 None 则使用 level 设置
+    - DEBUG
+    - INFO
+    - WARNING
+    - ERROR
+    - CRITICAL
+    '''
+
+    rotation: str | int = '1 days'
+    '''
+    配置 Loguru 的 rotation (轮转周期) 设置
+    '''
+
+    retention: str | int = '3 days'
+    '''
+    配置 Loguru 的 retention (轮转保留) 设置
+    '''
+
+    @field_validator('level', 'file_level', mode='before')
+    def normalize_level(cls, v):
+        if v is None:
+            return v
+        if not isinstance(v, str):
+            raise ValueError(f'Invaild log level: {v}')
+        upper = v.strip().upper()
+        valid = {'DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL'}
+        if upper not in valid:
+            raise ValueError(f'Invaild log level: {v}')
+        return upper
 
 
 class _EmojiConfigModel(BaseModel):
@@ -40,6 +96,7 @@ class _AutoRemoveTodoConfigModel(BaseModel):
     remove_delay: int = 3
     '''移除前等待秒数'''
 
+
 class _AutoRemoveMessageConfigModel(BaseModel):
     enabled: bool = False
     '''
@@ -53,16 +110,11 @@ class _AutoRemoveMessageConfigModel(BaseModel):
     - 支持通配符
     '''
 
+
 class ConfigModel(BaseModel):
     '''
     基础配置
     '''
-
-    debug: bool = False
-    '''是否开启调试模式 (更详细的输出)'''
-
-    log_file: str | None = None
-    '''日志文件 (为空禁用)'''
 
     token: str
     '''Bot Token'''
@@ -76,9 +128,11 @@ class ConfigModel(BaseModel):
     secret_message_delay: int = 600
     '''私密消息删除延迟 (秒)'''
 
+    log: _LoggingConfigModel = _LoggingConfigModel()
     emoji: _EmojiConfigModel = _EmojiConfigModel()
     rmtodo: _AutoRemoveTodoConfigModel = _AutoRemoveTodoConfigModel()
     rmmsg: _AutoRemoveMessageConfigModel = _AutoRemoveMessageConfigModel()
+
 
 class Config:
     '''
@@ -103,5 +157,5 @@ class Config:
         # process config
         self.config = ConfigModel.model_validate(raw_config)
 
-        if self.config.debug:
+        if self.config.log.level == 'DEBUG':
             l.debug(f'[config] init took {perf()}ms')

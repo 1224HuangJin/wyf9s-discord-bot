@@ -14,7 +14,5 @@ dependencies = [
     # Network Resources
     "aiohttp>=3.12.14",
     # Logging
-    "colorama>=0.4.6",
-    # jmcomic module
-    "jmcomic>=2.6.4",
+    "loguru>=0.7.3",
 ]
