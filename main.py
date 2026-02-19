@@ -3,19 +3,17 @@
 # region import
 
 import io
-import random
-from uuid import uuid4 as uuid
-from datetime import datetime
 import logging
 
 import discord
-from discord import app_commands
 from discord.ext import commands
 
 from config import Config
 import utils as u
 
 from modules.emoji import EmojiModule
+from modules.tools import ToolsModule
+from modules.manage import ManageModule
 
 # endregion import
 
@@ -78,228 +76,10 @@ client = commands.Bot(
 if c.emoji.enabled:
     emoji_module = EmojiModule(config=c, client=client)
 
+tools_module = ToolsModule(config=c, client=client)
+manage_module = ManageModule(config=c, client=client)
+
 # endregion modules
-
-# ------------- ### 斜杠命令 ### -------------
-
-# ========== Tools ==========
-
-# ----- Random - 随机数 -----
-
-
-@client.tree.command(
-    name='random',
-    description='生成自定义范围的随机数'
-)
-@app_commands.describe(
-    min_num='最小值 (默认: 1)',
-    max_num='最大值 (默认: 114514)'
-)
-async def slash_random_number(
-    interaction: discord.Interaction,
-    min_num: int = 1,
-    max_num: int = 114514
-):
-    try:
-        if min_num > max_num:
-            min_num, max_num = max_num, min_num  # 自动交换大小值
-
-        result = random.randint(min_num, max_num)
-        await interaction.response.send_message(
-            f':game_die: `{min_num}` - `{max_num}` 的随机数：**`{result}`**'
-        )
-    except ValueError:
-        await interaction.response.send_message(
-            ':x: 请输入有效的整数范围！',
-            ephemeral=True,
-            delete_after=10
-        )
-
-# ----- UUID -----
-
-
-@client.tree.command(
-    name='uuid',
-    description='生成一个 UUID'
-)
-async def slash_random_uuid(interaction: discord.Interaction):
-    now = int(datetime.now().timestamp())
-    await interaction.response.send_message(
-        f':lock: 随机生成 UUID: **`{uuid()}`**\n> 此条消息仅你可见, 且将在 <t:{now+c.secret_message_delay}:R> 删除',
-        ephemeral=True,
-        delete_after=c.secret_message_delay
-    )
-
-# ----- Delete Message - 删除消息 -----
-
-
-@client.tree.command(
-    name='delete',
-    description='删除消息'
-)
-@app_commands.describe(
-    message_id='要删除的消息 ID',
-    show_to_public='是否公开显示删除结果'
-)
-async def delete_message(
-    interaction: discord.Interaction,
-    message_id: str,
-    show_to_public: bool = False
-):
-    # 1. 删除回复的消息
-    # if interaction.message and interaction.message.reference:
-    #     msgid = interaction.message.reference.message_id
-    #     try:
-    #         await message = interaction.channel.get_partial_message(message_id).delete()
-    #     except discord.Forbidden:
-    #         await interaction.response.send_message(
-    #             f':x: **权限不足, 无法删除此消息** :x:',
-    #             ephemeral=not show_to_public
-    #         )
-    #     except discord.NotFound:
-    #         await interaction.response.send_message(
-    #             f':x: **找不到 ID 为 `{msgid}` 的消息** :x:',
-    #             ephemeral=not show_to_public
-    #         )
-    #     except Exception as e:
-    #         await interaction.response.send_message(
-    #             f':x: **删除消息 `{msgid}` 时出错: `{e}`** :x:',
-    #             ephemeral=not show_to_public
-    #         )
-    # 2. 删除指定 id 的消息
-    # elif message_id:
-    if message_id:
-        try:
-            message_id_int: int = int(message_id)
-            message = interaction.channel.get_partial_message(message_id_int)  # type: ignore
-            await message.delete()
-        except discord.Forbidden:
-            await interaction.response.send_message(
-                f':x: **权限不足, 无法删除此消息** :x:',
-                ephemeral=True,
-                delete_after=10
-            )
-        except discord.NotFound:
-            await interaction.response.send_message(
-                f':x: **找不到 ID 为 `{message_id}` 的消息** :x:',
-                ephemeral=True,
-                delete_after=10
-            )
-        except ValueError:
-            await interaction.response.send_message(
-                f':x: **消息 ID 不为整数: `{message_id}`** :x:',
-                ephemeral=True,
-                delete_after=10
-            )
-        except Exception as e:
-            await interaction.response.send_message(
-                f':x: **删除消息 `{message_id}` 时出错: `{e}`** :x:',
-                ephemeral=True,
-                delete_after=10
-            )
-        else:
-            await interaction.response.send_message(
-                f':white_check_mark: **删除消息 `{message_id}` 成功!** :white_check_mark:',
-                ephemeral=not show_to_public
-            )
-    else:
-        await interaction.response.send_message(
-            f':x: **未指定要删除的消息 (通过回复消息或指定消息 ID)** :x:',
-            ephemeral=True,
-            delete_after=10
-        )
-
-# ----- Clear Message - 清除 (某人) 的消息 -----
-
-
-@client.tree.command(
-    name='clear-message',
-    description='清除 (某人) 的消息'
-)
-@app_commands.describe(
-    user_id='用户 (机器人) ID',
-    message_count='拉取最近消息的数量',
-    # use_bulk_delete='是否使用批量删除 (无法删除 14 天前的消息)'
-)
-async def clear_message(
-    interaction: discord.Interaction,
-    user_id: str,
-    message_count: int,
-    # use_bulk_delete: bool
-):
-    await interaction.response.defer()
-    # 获取目标用户 id
-    try:
-        user_id_int: int = int(user_id)
-    except:
-        await interaction.followup.send(
-            f':x: **用户 ID 不为整数: `{user_id}`** :x:',
-            ephemeral=True
-        )
-    # 获取消息列表
-    message_list = [msg async for msg in interaction.channel.history(limit=message_count)]  # type: ignore
-    checked_messages: list[discord.Message] = []
-    checked_count = 0
-    success_count = 0
-    for i in message_list:
-        if i.author.id == user_id_int:
-            # checked_messages.append(i.id if use_bulk_delete else i)
-            checked_messages.append(i)
-    checked_count = len(checked_messages)
-    # 删除消息 (普通删除)
-    for i in checked_messages:
-        try:
-            await i.delete()
-        except:
-            pass
-        else:
-            success_count += 1
-    await interaction.followup.send(
-        f':broom: 清除用户 ID 为 **{user_id_int}** 的消息 :broom:' +
-        f'\n抓取最近消息 **{message_count}** 条, 其中此用户发送 **{checked_count}** 条, 成功删除 **{success_count}** 条'
-    )
-
-
-# ========== Others ==========
-
-
-@client.tree.command(
-    name='sync',
-    description='同步指令列表'
-)
-async def sync(interaction: discord.Interaction):
-    await interaction.response.defer()
-    await client.tree.sync()
-    print('Command tree synced.')
-    await interaction.followup.send(
-        '**:white_check_mark: 斜杠指令列表已同步**'
-    )
-# ----------------- 前缀命令 -----------------
-
-
-@client.command()
-async def sync_commands(ctx: commands.Context):
-    await ctx.defer()
-    await client.tree.sync()
-    await ctx.send('**:white_check_mark: 斜杠指令列表已同步**')
-
-# ----------------- 消息处理 -----------------
-
-
-@client.event
-async def on_message(message: discord.Message):
-    if c.rmtodo.enabled:
-        # 处理桥接加入消息
-        if message.author.name == '[DC] @system':
-            await message.delete(
-                delay=2
-            )
-        # 处理 To-Do List Bot 在 #sleepy-todo 的新消息
-        elif (message.channel.id in c.rmtodo.todo_channels) and (message.author.id == c.rmtodo.author_id) and (not message.embeds):
-            await message.delete(
-                delay=c.rmtodo.remove_delay
-            )
-
 
 # ------------------- 登录 -------------------
 

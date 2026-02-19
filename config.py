@@ -1,11 +1,3 @@
-# coding: utf-8
-# GHIMG_BASE = 'https://ghimg.siiway.top/emoji'
-# SECRET_MESSAGE_DELETE_SECOND = 600
-# COMMAND_PREFIX = '//'
-# MAX_RESULTS = 25
-# TODO_CHANNELS = [
-#     1368199180991860746
-# ]
 from pydantic import BaseModel
 from yaml import safe_load
 from logging import getLogger
