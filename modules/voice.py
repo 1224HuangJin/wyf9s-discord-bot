@@ -1,13 +1,10 @@
 # -*- coding: utf-8 -*-
-import logging
-
+from loguru import logger as l
 import discord
 from discord import app_commands
 from discord.ext import commands
 
 from config import ConfigModel
-
-l = logging.getLogger(__name__)
 
 
 class VoiceChannelModule:
@@ -37,9 +34,9 @@ class VoiceChannelModule:
             channel: discord.VoiceChannel | None = None
         ):
             # Check permissions
-            if not self._check_user_allowed(interaction.user.id):
+            if not self._check_user_allowed(interaction.user):
                 await interaction.response.send_message(
-                    "你没有权限使用此命令。",
+                    f"你没有权限使用此命令。*(UserID: `{interaction.user.id}`, UserName: `{interaction.user.name}`)*",
                     ephemeral=True
                 )
                 return
@@ -66,10 +63,16 @@ class VoiceChannelModule:
                         )
                         return
                     await interaction.guild.voice_client.disconnect(force=False)
-                    await channel.connect()
+                    await channel.connect(
+                        self_deaf=True,
+                        self_mute=True
+                    )
                     await interaction.response.send_message(f"已移动到 **{channel.name}**")
                 else:
-                    await channel.connect()
+                    await channel.connect(
+                        self_deaf=True,
+                        self_mute=True
+                    )
                     await interaction.response.send_message(f"已加入 **{channel.name}**")
 
                 # Update bot status
@@ -81,6 +84,14 @@ class VoiceChannelModule:
                 )
                 l.info(f'Bot joined voice channel: {channel.name} (ID: {channel.id})')
 
+            except discord.errors.ConnectionClosed as exc:
+                if exc.code == 4017:
+                    await interaction.followup.send(
+                        "频道要求 DAVE 加密，但连接失败。",
+                        ephemeral=True
+                    )
+                else:
+                    raise
             except discord.ClientException as e:
                 await interaction.response.send_message(f"连接失败：{e}", ephemeral=True)
                 l.error(f'Failed to join voice channel: {e}')
@@ -94,7 +105,7 @@ class VoiceChannelModule:
         )
         async def leavevc(interaction: discord.Interaction):
             # Check permissions
-            if not self._check_user_allowed(interaction.user.id):
+            if not self._check_user_allowed(interaction.user):
                 await interaction.response.send_message(
                     "你没有权限使用此命令。",
                     ephemeral=True
@@ -122,13 +133,15 @@ class VoiceChannelModule:
             )
             l.info(f'Bot left voice channel: {channel_name}')
 
-    def _check_user_allowed(self, user_id: int) -> bool:
+    def _check_user_allowed(self, user: discord.User | discord.Member) -> bool:
         '''
         检查用户是否被允许使用此功能
 
         如果 allowed_user_ids 为空，则所有人都被允许
         如果 allowed_user_ids 不为空，则只有列表中的用户被允许
         '''
-        if not self.c.voicechannel.allowed_user_ids:
-            return True
-        return user_id in self.c.voicechannel.allowed_user_ids
+        return any((
+            not self.c.voicechannel.allowed_user_ids,  # whitelist not set
+            user.id in self.c.voicechannel.allowed_user_ids,  # user id match
+            user.name in self.c.voicechannel.allowed_user_ids  # username match
+        ))

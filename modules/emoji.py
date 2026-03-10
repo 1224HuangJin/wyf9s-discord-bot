@@ -1,6 +1,6 @@
-from logging import getLogger
 import io
 
+from loguru import logger as l
 from pydantic import BaseModel, ValidationError
 import discord
 from discord import app_commands
@@ -9,8 +9,6 @@ import aiohttp
 
 from config import ConfigModel
 import utils as u
-
-l = getLogger(__name__)
 
 
 class EmojiModel(BaseModel):

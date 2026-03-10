@@ -1,11 +1,9 @@
 import time
 from pathlib import Path
 import os
-from logging import getLogger
 
+from loguru import logger as l
 import aiohttp
-
-l = getLogger(__name__)
 
 def perf_counter():
     '''

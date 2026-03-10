@@ -1,12 +1,10 @@
-from logging import getLogger
 from fnmatch import fnmatch
 
+from loguru import logger as l
 import discord
 from discord.ext import commands
 
 from config import ConfigModel
-
-l = getLogger(__name__)
 
 
 class ManageModule:

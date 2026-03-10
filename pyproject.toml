@@ -7,7 +7,7 @@ readme = "README.md"
 requires-python = ">=3.10"
 dependencies = [
     # Discord API
-    "discord-py>=2.5.2",
+    "discord-py[voice]>=2.5.2",
     # Config Parsing
     "pydantic>=2.11.7",
     "pyyaml>=6.0.2",
@@ -15,6 +15,5 @@ dependencies = [
     "aiohttp>=3.12.14",
     # Logging
     "loguru>=0.7.3",
-    # Voice Handling
-    "pynacl>=1.6.2",
+    "davey>=0.1.4",
 ]

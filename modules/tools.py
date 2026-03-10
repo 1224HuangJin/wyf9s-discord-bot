@@ -1,16 +1,14 @@
 # c!ding: utf-8
-from logging import getLogger
 from uuid import uuid4 as uuid
 from datetime import datetime
 import random
 
+from loguru import logger as l
 import discord
 from discord import app_commands
 from discord.ext import commands
 
 from config import ConfigModel
-
-l = getLogger(__name__)
 
 
 class ToolsModule:

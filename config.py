@@ -1,12 +1,10 @@
-from logging import getLogger
 import typing as t
 
+from loguru import logger as l
 from pydantic import BaseModel, field_validator
 from yaml import safe_load
 
 import utils as u
-
-l = getLogger(__name__)
 
 
 class _LoggingConfigModel(BaseModel):
@@ -120,7 +118,7 @@ class _VoiceChannelConfigModel(BaseModel):
     enabled: bool = True
     '''是否启用语音频道控制模块'''
 
-    allowed_user_ids: list[int] = []
+    allowed_user_ids: list[int | str] = []
     '''
     允许使用 join/leave vc 命令的用户 ID 列表
     - 留空则所有人可用
