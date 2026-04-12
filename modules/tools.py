@@ -1,6 +1,7 @@
 # c!ding: utf-8
 from uuid import uuid4 as uuid
-from datetime import datetime
+from datetime import datetime, timedelta, timezone
+from fnmatch import fnmatch
 import random
 
 from loguru import logger as l
@@ -127,26 +128,119 @@ class ToolsModule:
                     delete_after=10
                 )
 
-        # ----- Clear Message - 清除 (某人) 的消息 -----
+        # ----- Clear Message - 批量清除消息 -----
 
         @client.tree.command(
             name='clear-message',
-            description='清除 (某人) 的消息'
+            description='按条件批量清除消息'
         )
         @app_commands.describe(
-            user='要清除消息的用户',
-            message_count='拉取最近消息的数量 (每个频道)',
+            user='目标用户 (单个, 选择器)',
+            user_ids='目标用户 ID 列表 (逗号分隔, 可填多个)',
+            webhook_ids='目标 Webhook ID 列表 (逗号分隔, 可填多个)',
+            nick_pattern='目标昵称通配符 (fnmatch, 例如 "*bot*")',
+            content_pattern='消息内容通配符 (fnmatch, 例如 "*error*")',
+            message_count='每个频道最多检查多少条消息 (不填/0 = 不限制但较慢)',
+            within_minutes='仅清除最近几分钟内的消息 (不填/0 = 不限制)',
             scope='清除消息的范围: "channel" (单个频道, 默认) 或 "server" (整个服务器)',
             channel='指定频道 (仅在 scope=channel 时生效, 未设置则使用指令所在频道)',
         )
         async def clear_message(
             interaction: discord.Interaction,
-            user: discord.User,
-            message_count: int,
+            user: discord.User | None = None,
+            user_ids: str | None = None,
+            webhook_ids: str | None = None,
+            nick_pattern: str | None = None,
+            content_pattern: str | None = None,
+            message_count: int | None = None,
+            within_minutes: int | None = None,
             scope: str = 'channel',
             channel: discord.TextChannel | None = None
         ):
             await interaction.response.defer()
+
+            message_limit = message_count if message_count is not None else 0
+            minutes_limit = within_minutes if within_minutes is not None else 0
+
+            if message_limit < 0:
+                await interaction.followup.send(
+                    ':x: **message_count 不能小于 0** :x:',
+                    ephemeral=True
+                )
+                return
+
+            if minutes_limit < 0:
+                await interaction.followup.send(
+                    ':x: **within_minutes 不能小于 0** :x:',
+                    ephemeral=True
+                )
+                return
+
+            if message_limit == 0 and minutes_limit == 0:
+                await interaction.followup.send(
+                    ':x: **message_count 和 within_minutes 不能同时不限制，请至少设置一个** :x:',
+                    ephemeral=True
+                )
+                return
+
+            match_inputs = {
+                'user': '1' if user else '',
+                'user_ids': user_ids.strip() if user_ids else '',
+                'webhook_ids': webhook_ids.strip() if webhook_ids else '',
+                'nick_pattern': nick_pattern.strip() if nick_pattern else '',
+                'content_pattern': content_pattern.strip() if content_pattern else '',
+            }
+            active_match_types = [k for k, v in match_inputs.items() if v]
+            if len(active_match_types) != 1:
+                await interaction.followup.send(
+                    ':x: **必须且只能提供一种匹配方式: user / user_ids / webhook_ids / nick_pattern / content_pattern** :x:',
+                    ephemeral=True
+                )
+                return
+
+            def parse_ids(raw_ids: str, label: str) -> tuple[set[int] | None, str]:
+                parts = [
+                    part.strip()
+                    for part in raw_ids.replace('，', ',').split(',')
+                    if part.strip()
+                ]
+                if not parts:
+                    return None, f'{label} 为空'
+                values: set[int] = set()
+                for part in parts:
+                    if not part.isdigit():
+                        return None, f'{label} 中包含非法 ID: `{part}`'
+                    values.add(int(part))
+                return values, ''
+
+            target_user_ids: set[int] = set()
+            target_webhook_ids: set[int] = set()
+            match_type = active_match_types[0]
+
+            if match_type == 'user':
+                target_user_ids = {user.id} if user else set()
+            elif match_type == 'user_ids':
+                parsed, err = parse_ids(match_inputs['user_ids'], 'user_ids')
+                if not parsed:
+                    await interaction.followup.send(
+                        f':x: **{err}** :x:',
+                        ephemeral=True
+                    )
+                    return
+                target_user_ids = parsed
+            elif match_type == 'webhook_ids':
+                parsed, err = parse_ids(match_inputs['webhook_ids'], 'webhook_ids')
+                if not parsed:
+                    await interaction.followup.send(
+                        f':x: **{err}** :x:',
+                        ephemeral=True
+                    )
+                    return
+                target_webhook_ids = parsed
+            elif match_type == 'nick_pattern':
+                nick_pattern = match_inputs['nick_pattern']
+            else:
+                content_pattern = match_inputs['content_pattern']
 
             # 验证 scope 参数
             scope = scope.lower().strip()
@@ -171,59 +265,127 @@ class ToolsModule:
                 # 整个服务器的所有文本频道
                 target_channels = [ch for ch in interaction.guild.channels if isinstance(ch, discord.TextChannel)]  # type: ignore
 
-            # 收集要删除的消息
-            checked_messages: list[discord.Message] = []
+            cutoff_time = None
+            if minutes_limit > 0:
+                cutoff_time = datetime.now(timezone.utc) - timedelta(minutes=minutes_limit)
 
-            for channel in target_channels:
+            # 收集要删除的消息
+            checked_messages_by_channel: dict[int, list[discord.Message]] = {}
+            checked_count = 0
+
+            def message_matches(msg: discord.Message) -> bool:
+                if cutoff_time is not None and msg.created_at < cutoff_time:
+                    return False
+                if match_type in ['user', 'user_ids']:
+                    return msg.author.id in target_user_ids
+                if match_type == 'webhook_ids':
+                    return msg.webhook_id is not None and msg.webhook_id in target_webhook_ids
+                if match_type == 'nick_pattern':
+                    display_name = getattr(msg.author, 'display_name', msg.author.name)
+                    return fnmatch(display_name, nick_pattern or '')
+                return fnmatch(msg.content, content_pattern or '')
+
+            for target_channel in target_channels:
                 try:
-                    message_list = [msg async for msg in channel.history(limit=message_count)]
-                    for msg in message_list:
-                        if msg.author.id == user.id:
-                            checked_messages.append(msg)
+                    async for msg in target_channel.history(limit=message_limit if message_limit > 0 else None):
+                        if cutoff_time is not None and msg.created_at < cutoff_time:
+                            break
+                        if message_matches(msg):
+                            if target_channel.id not in checked_messages_by_channel:
+                                checked_messages_by_channel[target_channel.id] = []
+                            checked_messages_by_channel[target_channel.id].append(msg)
+                            checked_count += 1
                 except discord.Forbidden:
-                    # l.warning(f'无权限访问频道 {channel.name} ({channel.id})')
+                    # l.warning(f'无权限访问频道 {target_channel.name} ({target_channel.id})')
                     pass
                 except Exception as e:
-                    l.warning(f'获取频道 {channel.name} ({channel.id}) 消息时出错: {e}')
-
-            checked_count = len(checked_messages)
+                    l.warning(f'获取频道 {target_channel.name} ({target_channel.id}) 消息时出错: {e}')
 
             if checked_count == 0:
+                match_desc = {
+                    'user': f'用户 **{user.mention if user else "[unknown]"}**',
+                    'user_ids': f'用户 ID `{sorted(target_user_ids)}`',
+                    'webhook_ids': f'Webhook ID `{sorted(target_webhook_ids)}`',
+                    'nick_pattern': f'昵称通配符 `{nick_pattern}`',
+                    'content_pattern': f'内容通配符 `{content_pattern}`'
+                }[match_type]
+                time_desc = f'且在最近 **{minutes_limit}** 分钟内' if minutes_limit > 0 else ''
                 await interaction.followup.send(
-                    f':broom: 未找到用户 **{user.mention}** 的消息'
+                    f':broom: 未找到匹配 **{match_desc}** {time_desc}的消息'
                 )
                 return
 
             # 使用 bulk_delete API 删除消息 (Discord API 限制最多一次删除 100 条)
             success_count = 0
             failed_count = 0
+            too_old_count = 0
+            now = datetime.now(timezone.utc)
+            channel_map = {ch.id: ch for ch in target_channels}
 
             # 按批次删除 (一次最多 100 条)
-            for i in range(0, len(checked_messages), 100):
-                batch = checked_messages[i:i+100]
-                try:
-                    await interaction.channel.delete_messages(batch)  # type: ignore
-                    success_count += len(batch)
-                except discord.Forbidden:
-                    await interaction.followup.send(
-                        f':x: **权限不足, 无法删除消息** :x:',
-                        ephemeral=True
-                    )
-                    return
-                except Exception as e:
-                    l.error(f'批量删除消息时出错: {e}')
-                    failed_count += len(batch)
+            for channel_id, messages in checked_messages_by_channel.items():
+                target_channel = channel_map.get(channel_id)
+                if target_channel is None:
+                    failed_count += len(messages)
+                    continue
+                messages.sort(key=lambda m: m.created_at, reverse=True)
+                for i in range(0, len(messages), 100):
+                    batch = messages[i:i+100]
+                    # 留 5 分钟余量，避免触发 14 天上限边界问题
+                    valid_batch = [
+                        msg for msg in batch
+                        if (now - msg.created_at).total_seconds() < (14 * 86400 - 300)
+                    ]
+                    if not valid_batch:
+                        too_old_count += len(batch)
+                        continue
+                    try:
+                        # bulk_delete 至少 2 条，单条走 delete
+                        if len(valid_batch) == 1:
+                            await valid_batch[0].delete()
+                            success_count += 1
+                        else:
+                            await target_channel.delete_messages(valid_batch)
+                            success_count += len(valid_batch)
+                    except discord.Forbidden:
+                        await interaction.followup.send(
+                            f':x: **权限不足, 无法删除频道 `{target_channel.name}` 中的消息** :x:',
+                            ephemeral=True
+                        )
+                        return
+                    except discord.HTTPException as e:
+                        if e.code == 50034:   # Messages older than 14 days
+                            too_old_count += len(valid_batch)
+                        elif e.code == 10008:  # Unknown message
+                            pass
+                        else:
+                            l.error(f'批量删除消息时出错 (channel={target_channel.id}, batch={i}:{i+len(batch)}): {e}')
+                            failed_count += len(valid_batch)
+                    except Exception as e:
+                        l.error(f'批量删除消息时出错 (channel={target_channel.id}): {e}')
+                        failed_count += len(valid_batch)
 
             # 生成统计信息
             scope_text = '频道' if scope == 'channel' else '服务器'
-            channel_info = f' (频道: {getattr(interaction.channel, 'name', '[DM Channel]')})' if scope == 'channel' else ''
+            channel_name = getattr(interaction.channel, "name", "[DM Channel]")
+            channel_info = f' (频道: {channel_name})' if scope == 'channel' else ''
+            match_desc = {
+                'user': f'用户 **{user.mention if user else "[unknown]"}**',
+                'user_ids': f'用户 ID `{sorted(target_user_ids)}`',
+                'webhook_ids': f'Webhook ID `{sorted(target_webhook_ids)}`',
+                'nick_pattern': f'昵称通配符 `{nick_pattern}`',
+                'content_pattern': f'内容通配符 `{content_pattern}`'
+            }[match_type]
 
             await interaction.followup.send(
-                f':broom: 清除用户 **{user.mention}** 的消息 :broom:' +
+                f':broom: 批量清除消息完成 :broom:' +
                 f'\n范围: **{scope_text}**{channel_info}' +
-                f'\n查询消息数: **{message_count} x {len(target_channels)}** 条, 匹配用户消息 **{checked_count}** 条' +
+                f'\n匹配方式: **{match_desc}**' +
+                f'\n时间范围: {"最近 **" + str(minutes_limit) + "** 分钟" if minutes_limit > 0 else "不限制"}' +
+                f'\n每频道检查上限: **{message_limit if message_limit > 0 else "不限制"}** 条, 匹配消息 **{checked_count}** 条' +
                 f'\n成功删除: **{success_count}** 条' +
-                (f', 失败: **{failed_count}** 条' if failed_count > 0 else '')
+                (f'\n因超过 14 天不可删: **{too_old_count}** 条' if too_old_count > 0 else '') +
+                (f'\n其他原因失败: **{failed_count}** 条' if failed_count > 0 else '')
             )
 
         # ========== Others ==========
