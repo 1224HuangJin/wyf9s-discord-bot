@@ -391,6 +391,101 @@ class ToolsModule:
         # ========== Others ==========
 
         @client.tree.command(
+            name='move-channel',
+            description='移动当前或指定频道到指定分类或频道的前/后'
+        )
+        @app_commands.describe(
+            target_channel='要操作的频道 (可选，默认为当前频道)',
+            category='目标分类 (可选)',
+            before='在这个频道之前 (可选)',
+            after='在这个频道之后 (可选)',
+            sync_perm='是否同步目标分类的权限 (可选，默认为 True)'
+        )
+        async def move_channel(
+            interaction: discord.Interaction,
+            target_channel: discord.abc.GuildChannel | None = None,
+            category: discord.CategoryChannel | None = None,
+            before: discord.abc.GuildChannel | None = None,
+            after: discord.abc.GuildChannel | None = None,
+            sync_perm: bool = True
+        ):
+            if not category and not before and not after:
+                await interaction.response.send_message(
+                    ':x: **参数错误：请至少提供 `category`、`before` 或 `after` 中的一个参数**',
+                    ephemeral=True
+                )
+                return
+            
+            if before and after:
+                await interaction.response.send_message(
+                    ':x: **参数错误：不能同时指定 `before` 和 `after`**',
+                    ephemeral=True
+                )
+                return
+
+            channel = target_channel or interaction.channel
+            if not isinstance(channel, discord.abc.GuildChannel):
+                await interaction.response.send_message(
+                    ':x: **此指令只能对服务器频道使用**',
+                    ephemeral=True
+                )
+                return
+
+            kwargs = {}
+            update_category = False
+            target_category = None
+            
+            if category:
+                target_category = category
+                update_category = True
+            
+            if before:
+                if not update_category:
+                    target_category = getattr(before, 'category', None)
+                    update_category = True
+                kwargs['position'] = before.position
+            elif after:
+                if not update_category:
+                    target_category = getattr(after, 'category', None)
+                    update_category = True
+                kwargs['position'] = after.position + 1
+
+            if update_category:
+                kwargs['category'] = target_category
+                if sync_perm:
+                    kwargs['sync_permissions'] = True
+
+            try:
+                await channel.edit(**kwargs)
+                
+                msg_parts = []
+                if category:
+                    msg_parts.append(f'分类 `{category.name}`')
+                if before:
+                    msg_parts.append(f'`{before.name}` 之前')
+                elif after:
+                    msg_parts.append(f'`{after.name}` 之后')
+                
+                await interaction.response.send_message(
+                    f':white_check_mark: **已成功将 {channel.mention} 移动到 {" / ".join(msg_parts)}**'
+                )
+            except discord.Forbidden:
+                await interaction.response.send_message(
+                    ':x: **权限不足：我需要 `管理频道 (Manage Channels)` 权限才能执行此操作，或者我的角色层级不够**',
+                    ephemeral=True
+                )
+            except discord.HTTPException as e:
+                await interaction.response.send_message(
+                    f':x: **移动失败：API 请求错误 ({e.status} - {e.text})**',
+                    ephemeral=True
+                )
+            except Exception as e:
+                await interaction.response.send_message(
+                    f':x: **移动失败：发生未知错误：`{e}`**',
+                    ephemeral=True
+                )
+
+        @client.tree.command(
             name='sync',
             description='同步指令列表'
         )
@@ -404,7 +499,7 @@ class ToolsModule:
 
         # ----- Prefix Command -----
 
-        @client.command()
+        @client.command(name="sync-commands")
         async def sync_commands(ctx: commands.Context):
             await ctx.defer()
             await client.tree.sync()

@@ -36,7 +36,7 @@ class VoiceChannelModule:
             # Check permissions
             if not self._check_user_allowed(interaction.user):
                 await interaction.response.send_message(
-                    f"你没有权限使用此命令。*(UserID: `{interaction.user.id}`, UserName: `{interaction.user.name}`)*",
+                    f"你没有权限使用此命令 *(UserID: `{interaction.user.id}`, UserName: `{interaction.user.name}`)*",
                     ephemeral=True
                 )
                 return
@@ -44,21 +44,21 @@ class VoiceChannelModule:
             if channel is None and isinstance(interaction.user, discord.Member):
                 if not interaction.user.voice or not interaction.user.voice.channel or isinstance(interaction.user.voice.channel, discord.StageChannel):
                     await interaction.response.send_message(
-                        "你需要先加入一个语音频道，或者明确指定要加入的频道。",
+                        "你需要先加入一个语音频道，或者明确指定要加入的频道",
                         ephemeral=True
                     )
                     return
                 channel = interaction.user.voice.channel
 
             if not isinstance(channel, discord.VoiceChannel):
-                await interaction.response.send_message("目标不是语音频道。", ephemeral=True)
+                await interaction.response.send_message("目标不是语音频道", ephemeral=True)
                 return
 
             try:
                 if interaction.guild and interaction.guild.voice_client:
                     if isinstance(interaction.guild.voice_client.channel, discord.VoiceChannel) and interaction.guild.voice_client.channel.id == channel.id:
                         await interaction.response.send_message(
-                            f"已经在 **{channel.name}** 里了。",
+                            f"已经在 **{channel.name}** 里了",
                             ephemeral=True
                         )
                         return
@@ -87,7 +87,7 @@ class VoiceChannelModule:
             except discord.errors.ConnectionClosed as exc:
                 if exc.code == 4017:
                     await interaction.followup.send(
-                        "频道要求 DAVE 加密，但连接失败。",
+                        "频道要求 DAVE 加密，但连接失败",
                         ephemeral=True
                     )
                 else:
@@ -107,17 +107,17 @@ class VoiceChannelModule:
             # Check permissions
             if not self._check_user_allowed(interaction.user):
                 await interaction.response.send_message(
-                    "你没有权限使用此命令。",
+                    "你没有权限使用此命令",
                     ephemeral=True
                 )
                 return
 
             if not interaction.guild or not interaction.guild.voice_client:
-                await interaction.response.send_message("我目前没在任何语音频道里。", ephemeral=True)
+                await interaction.response.send_message("我目前没在任何语音频道里", ephemeral=True)
                 return
 
             if not isinstance(interaction.guild.voice_client.channel, discord.VoiceChannel):
-                await interaction.response.send_message("机器人未在有效的语音频道中。", ephemeral=True)
+                await interaction.response.send_message("机器人未在有效的语音频道中", ephemeral=True)
                 return
 
             channel_name = interaction.guild.voice_client.channel.name

@@ -29,7 +29,7 @@ class EmojiModule:
         self.client = client
 
         @client.tree.command(
-            name='emoji_update',
+            name='emoji-update',
             description='更新表情包库数据'
         )
         async def emoji_update(interaction: discord.Interaction):
@@ -51,7 +51,7 @@ class EmojiModule:
                 )
 
         @client.tree.command(
-            name='emoji_info',
+            name='emoji-info',
             description='查看表情包库相关信息'
         )
         async def emoji_info(interaction: discord.Interaction):
