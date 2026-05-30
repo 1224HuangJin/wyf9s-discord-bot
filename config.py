@@ -125,6 +125,29 @@ class _VoiceChannelConfigModel(BaseModel):
     '''
 
 
+class _PermissionListConfigModel(BaseModel):
+    '''
+    通用权限名单配置
+    '''
+
+    users: list[int | str] = []
+    '''
+    允许的用户 ID / 用户名列表
+    '''
+
+
+class _ScopedPermissionListConfigModel(BaseModel):
+    '''
+    支持全局和按服务器配置的权限名单
+    '''
+
+    users: list[int | str] = []
+    '''全局允许的用户 ID / 用户名列表'''
+
+    guilds: dict[int | str, list[int | str]] = {}
+    '''按服务器配置的允许列表，key 为 guild id，可写数字或字符串'''
+
+
 class ConfigModel(BaseModel):
     '''
     基础配置
@@ -147,6 +170,8 @@ class ConfigModel(BaseModel):
     rmtodo: _AutoRemoveTodoConfigModel = _AutoRemoveTodoConfigModel()
     rmmsg: _AutoRemoveMessageConfigModel = _AutoRemoveMessageConfigModel()
     voicechannel: _VoiceChannelConfigModel = _VoiceChannelConfigModel()
+    admins: _PermissionListConfigModel = _PermissionListConfigModel()
+    mods: _ScopedPermissionListConfigModel = _ScopedPermissionListConfigModel()
 
 
 class Config:
