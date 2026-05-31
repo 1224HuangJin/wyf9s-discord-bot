@@ -3,6 +3,7 @@ from uuid import uuid4 as uuid
 from datetime import datetime, timedelta, timezone
 from fnmatch import fnmatch
 import random
+import re
 
 from loguru import logger as l
 import discord
@@ -10,6 +11,63 @@ from discord import app_commands
 from discord.ext import commands
 
 from config import ConfigModel
+
+
+def _parse_time_or_id(value: str | None, label: str) -> tuple[discord.Object | None, datetime | None, str | None]:
+    if not value or not value.strip():
+        return None, None, None
+
+    value = value.strip()
+
+    if value.isdigit():
+        return discord.Object(id=int(value)), None, None
+
+    m = re.fullmatch(r'(\d+[dhm])+', value)
+    if m:
+        td = timedelta()
+        for num, unit in re.findall(r'(\d+)([dhm])', value):
+            n = int(num)
+            if unit == 'd':
+                td += timedelta(days=n)
+            elif unit == 'h':
+                td += timedelta(hours=n)
+            elif unit == 'm':
+                td += timedelta(minutes=n)
+        return None, datetime.now(timezone.utc) - td, None
+
+    try:
+        cleaned = value.replace('Z', '+00:00')
+        dt = datetime.fromisoformat(cleaned)
+        if dt.tzinfo is None:
+            dt = dt.replace(tzinfo=timezone.utc)
+        return None, dt, None
+    except ValueError:
+        pass
+
+    return None, None, f'{label}: `{value}` 格式无效 (支持: 消息ID, 相对时间如 30m/2h/1d, ISO 时间)'
+
+
+class ConfirmClearView(discord.ui.View):
+    def __init__(self):
+        super().__init__(timeout=60)
+        self.confirmed: bool | None = None
+
+    @discord.ui.button(label='确认删除', style=discord.ButtonStyle.danger)
+    async def btn_confirm(self, interaction: discord.Interaction, button: discord.ui.Button):
+        self.confirmed = True
+        self.stop()
+        await interaction.response.defer()
+        await interaction.edit_original_response(content=':broom: **正在执行...**', view=None)
+
+    @discord.ui.button(label='取消', style=discord.ButtonStyle.secondary)
+    async def btn_cancel(self, interaction: discord.Interaction, button: discord.ui.Button):
+        self.confirmed = False
+        self.stop()
+        await interaction.response.defer()
+        await interaction.edit_original_response(content=':x: **操作已取消**', view=None)
+
+    async def on_timeout(self):
+        self.confirmed = False
 
 
 class ToolsModule:
@@ -149,6 +207,8 @@ class ToolsModule:
             within_minutes='仅清除最近几分钟内的消息 (不填/0 = 不限制)',
             scope='清除消息的范围: "channel" (单个频道, 默认) 或 "server" (整个服务器)',
             channel='指定频道 (仅在 scope=channel 时生效, 未设置则使用指令所在频道)',
+            start='起始范围: 消息ID 或 相对/绝对时间 (例如 "1234567890" / "30m" / "2h" / "1d" / ISO时间)',
+            end='结束范围: 消息ID 或 相对/绝对时间 (例如 "1234567890" / "30m" / "2h" / "1d" / ISO时间)',
         )
         async def clear_message(
             interaction: discord.Interaction,
@@ -160,7 +220,9 @@ class ToolsModule:
             message_count: int | None = None,
             within_minutes: int | None = None,
             scope: str = 'channel',
-            channel: discord.TextChannel | None = None
+            channel: discord.TextChannel | None = None,
+            start: str | None = None,
+            end: str | None = None,
         ):
             if not self._can_use_clear_message(interaction.user, interaction.guild):
                 await self._deny(interaction, ':x: **你没有权限使用此指令** :x:')
@@ -179,21 +241,29 @@ class ToolsModule:
                 await interaction.followup.send(':x: **within_minutes 不能小于 0** :x:', ephemeral=True)
                 return
 
-            if message_limit == 0 and minutes_limit == 0:
+            has_time_range = bool(start or end)
+            has_legacy_restriction = minutes_limit > 0 or message_limit > 0
+            has_match_filter = bool(
+                user or (user_ids and user_ids.strip())
+                or (webhook_ids and webhook_ids.strip())
+                or (nick_pattern and nick_pattern.strip())
+                or (content_pattern and content_pattern.strip())
+            )
+
+            if has_time_range and has_legacy_restriction:
+                await interaction.followup.send(
+                    ':x: **start/end 不能与 within_minutes/message_count 同时使用** :x:',
+                    ephemeral=True
+                )
+                return
+
+            if not has_time_range and message_limit == 0 and minutes_limit == 0:
                 await interaction.followup.send(':x: **message_count 和 within_minutes 不能同时不限制，请至少设置一个** :x:', ephemeral=True)
                 return
 
-            match_inputs = {
-                'user': '1' if user else '',
-                'user_ids': user_ids.strip() if user_ids else '',
-                'webhook_ids': webhook_ids.strip() if webhook_ids else '',
-                'nick_pattern': nick_pattern.strip() if nick_pattern else '',
-                'content_pattern': content_pattern.strip() if content_pattern else '',
-            }
-            active_match_types = [k for k, v in match_inputs.items() if v]
-            if len(active_match_types) != 1:
+            if not has_time_range and not has_legacy_restriction and not has_match_filter:
                 await interaction.followup.send(
-                    ':x: **必须且只能提供一种匹配方式: user / user_ids / webhook_ids / nick_pattern / content_pattern** :x:',
+                    ':x: **必须指定至少一种过滤条件或范围限制 (user/user_ids/webhook_ids/nick_pattern/content_pattern/start/end/within_minutes/message_count)** :x:',
                     ephemeral=True
                 )
                 return
@@ -211,26 +281,34 @@ class ToolsModule:
 
             target_user_ids: set[int] = set()
             target_webhook_ids: set[int] = set()
-            match_type = active_match_types[0]
+            nick_pattern_filter: str | None = None
+            content_pattern_filter: str | None = None
+            match_types: list[str] = []
 
-            if match_type == 'user':
-                target_user_ids = {user.id} if user else set()
-            elif match_type == 'user_ids':
-                parsed, err = parse_ids(match_inputs['user_ids'], 'user_ids')
+            if user:
+                target_user_ids = {user.id}
+                match_types.append('user')
+            if user_ids and user_ids.strip():
+                parsed, err = parse_ids(user_ids.strip(), 'user_ids')
                 if not parsed:
                     await interaction.followup.send(f':x: **{err}** :x:', ephemeral=True)
                     return
-                target_user_ids = parsed
-            elif match_type == 'webhook_ids':
-                parsed, err = parse_ids(match_inputs['webhook_ids'], 'webhook_ids')
+                target_user_ids |= parsed
+                if 'user_ids' not in match_types:
+                    match_types.append('user_ids')
+            if webhook_ids and webhook_ids.strip():
+                parsed, err = parse_ids(webhook_ids.strip(), 'webhook_ids')
                 if not parsed:
                     await interaction.followup.send(f':x: **{err}** :x:', ephemeral=True)
                     return
                 target_webhook_ids = parsed
-            elif match_type == 'nick_pattern':
-                nick_pattern = match_inputs['nick_pattern']
-            else:
-                content_pattern = match_inputs['content_pattern']
+                match_types.append('webhook_ids')
+            if nick_pattern and nick_pattern.strip():
+                nick_pattern_filter = nick_pattern.strip()
+                match_types.append('nick_pattern')
+            if content_pattern and content_pattern.strip():
+                content_pattern_filter = content_pattern.strip()
+                match_types.append('content_pattern')
 
             scope = scope.lower().strip()
             if scope not in ['channel', 'server']:
@@ -252,9 +330,69 @@ class ToolsModule:
                     return
                 target_channels = [ch for ch in interaction.guild.channels if isinstance(ch, discord.TextChannel)]
 
+            start_obj: discord.Object | None = None
+            start_dt: datetime | None = None
+            end_obj: discord.Object | None = None
+            end_dt: datetime | None = None
+            if has_time_range:
+                if start:
+                    start_obj, start_dt, start_err = _parse_time_or_id(start, 'start')
+                    if start_err:
+                        await interaction.followup.send(f':x: **{start_err}** :x:', ephemeral=True)
+                        return
+                if end:
+                    end_obj, end_dt, end_err = _parse_time_or_id(end, 'end')
+                    if end_err:
+                        await interaction.followup.send(f':x: **{end_err}** :x:', ephemeral=True)
+                        return
+                if start_dt and end_dt and start_dt > end_dt:
+                    await interaction.followup.send(':x: **start 时间不能晚于 end 时间** :x:', ephemeral=True)
+                    return
+
             cutoff_time = None
-            if minutes_limit > 0:
+            start_time_bound: datetime | None = None
+            end_time_bound: datetime | None = None
+            if has_time_range:
+                start_time_bound = start_dt
+                end_time_bound = end_dt
+            elif minutes_limit > 0:
                 cutoff_time = datetime.now(timezone.utc) - timedelta(minutes=minutes_limit)
+
+            now = datetime.now(timezone.utc)
+            need_confirm = False
+            confirm_reasons: list[str] = []
+
+            if has_legacy_restriction and message_limit > 30:
+                need_confirm = True
+                confirm_reasons.append(f'message_count ({message_limit}) 超过 30')
+
+            if has_time_range:
+                if start_dt and (now - start_dt) > timedelta(days=1):
+                    need_confirm = True
+                    confirm_reasons.append('start 范围包含超过 1 天前的消息')
+                elif end_dt and not start_dt and (now - end_dt) > timedelta(days=1):
+                    need_confirm = True
+                    confirm_reasons.append('end 范围包含超过 1 天前的消息')
+            elif not has_time_range:
+                if minutes_limit > 1440:
+                    need_confirm = True
+                    confirm_reasons.append(f'within_minutes ({minutes_limit}) 超过 1 天')
+                elif minutes_limit == 0 and match_types:
+                    need_confirm = True
+                    confirm_reasons.append('未指定时间范围限制，可能包含超过 1 天前的消息')
+
+            if need_confirm:
+                view = ConfirmClearView()
+                await interaction.followup.send(
+                    ':warning: **确认操作**\n拟删除范围可能较大：\n' +
+                    '\n'.join(f'• {r}' for r in confirm_reasons) +
+                    '\n\n是否继续？',
+                    view=view,
+                    ephemeral=True
+                )
+                await view.wait()
+                if not view.confirmed:
+                    return
 
             checked_messages_by_channel: dict[int, list[discord.Message]] = {}
             checked_count = 0
@@ -262,19 +400,45 @@ class ToolsModule:
             def message_matches(msg: discord.Message) -> bool:
                 if cutoff_time is not None and msg.created_at < cutoff_time:
                     return False
-                if match_type in ['user', 'user_ids']:
-                    return msg.author.id in target_user_ids
-                if match_type == 'webhook_ids':
-                    return msg.webhook_id is not None and msg.webhook_id in target_webhook_ids
-                if match_type == 'nick_pattern':
+                if start_time_bound is not None and msg.created_at < start_time_bound:
+                    return False
+                if end_time_bound is not None and msg.created_at > end_time_bound:
+                    return False
+                if not match_types:
+                    return True
+                if target_user_ids and msg.author.id in target_user_ids:
+                    return True
+                if target_webhook_ids and msg.webhook_id is not None and msg.webhook_id in target_webhook_ids:
+                    return True
+                if nick_pattern_filter:
                     display_name = getattr(msg.author, 'display_name', msg.author.name)
-                    return fnmatch(display_name, nick_pattern or '')
-                return fnmatch(msg.content, content_pattern or '')
+                    if fnmatch(display_name, nick_pattern_filter):
+                        return True
+                if content_pattern_filter:
+                    if fnmatch(msg.content, content_pattern_filter):
+                        return True
+                return False
+
+            history_kwargs: dict = {}
+            if has_time_range:
+                history_kwargs['limit'] = None
+                if end_obj:
+                    history_kwargs['before'] = end_obj
+                elif end_dt:
+                    history_kwargs['before'] = end_dt
+                if start_obj:
+                    history_kwargs['after'] = start_obj
+                elif start_dt:
+                    history_kwargs['after'] = start_dt
+            else:
+                history_kwargs['limit'] = message_limit if message_limit > 0 else None
 
             for target_channel in target_channels:
                 try:
-                    async for msg in target_channel.history(limit=message_limit if message_limit > 0 else None):
+                    async for msg in target_channel.history(**history_kwargs):
                         if cutoff_time is not None and msg.created_at < cutoff_time:
+                            break
+                        if start_time_bound is not None and msg.created_at < start_time_bound:
                             break
                         if message_matches(msg):
                             checked_messages_by_channel.setdefault(target_channel.id, []).append(msg)
@@ -285,21 +449,35 @@ class ToolsModule:
                     l.warning(f'获取频道 {target_channel.name} ({target_channel.id}) 消息时出错: {e}')
 
             if checked_count == 0:
-                match_desc = {
-                    'user': f'用户 **{user.mention if user else "[unknown]"}**',
-                    'user_ids': f'用户 ID `{sorted(target_user_ids)}`',
-                    'webhook_ids': f'Webhook ID `{sorted(target_webhook_ids)}`',
-                    'nick_pattern': f'昵称通配符 `{nick_pattern}`',
-                    'content_pattern': f'内容通配符 `{content_pattern}`'
-                }[match_type]
-                time_desc = f'且在最近 **{minutes_limit}** 分钟内' if minutes_limit > 0 else ''
-                await interaction.followup.send(f':broom: 未找到匹配 **{match_desc}** {time_desc}的消息')
+                match_descs: list[str] = []
+                if target_user_ids:
+                    if len(target_user_ids) == 1 and match_types == ['user']:
+                        match_descs.append(f'用户 {user.mention if user else "[unknown]"}')
+                    else:
+                        match_descs.append(f'用户 ID `{sorted(target_user_ids)}`')
+                if target_webhook_ids:
+                    match_descs.append(f'Webhook ID `{sorted(target_webhook_ids)}`')
+                if nick_pattern_filter:
+                    match_descs.append(f'昵称通配符 `{nick_pattern_filter}`')
+                if content_pattern_filter:
+                    match_descs.append(f'内容通配符 `{content_pattern_filter}`')
+                match_desc = ' / '.join(match_descs) if match_descs else '无过滤条件'
+                time_desc = ''
+                if has_time_range:
+                    parts = []
+                    if start:
+                        parts.append(f'起始 `{start}`')
+                    if end:
+                        parts.append(f'结束 `{end}`')
+                    time_desc = ', '.join(parts)
+                elif minutes_limit > 0:
+                    time_desc = f'最近 **{minutes_limit}** 分钟内'
+                await interaction.followup.send(f':broom: 未找到匹配 **{match_desc}** {(time_desc + " ") if time_desc else ""}的消息')
                 return
 
             success_count = 0
             failed_count = 0
             too_old_count = 0
-            now = datetime.now(timezone.utc)
             channel_map = {ch.id: ch for ch in target_channels}
 
             for channel_id, messages in checked_messages_by_channel.items():
@@ -345,20 +523,40 @@ class ToolsModule:
             scope_text = '频道' if scope == 'channel' else '服务器'
             channel_name = getattr(interaction.channel, 'name', '[DM Channel]')
             channel_info = f' (频道: {channel_name})' if scope == 'channel' else ''
-            match_desc = {
-                'user': f'用户 **{user.mention if user else "[unknown]"}**',
-                'user_ids': f'用户 ID `{sorted(target_user_ids)}`',
-                'webhook_ids': f'Webhook ID `{sorted(target_webhook_ids)}`',
-                'nick_pattern': f'昵称通配符 `{nick_pattern}`',
-                'content_pattern': f'内容通配符 `{content_pattern}`'
-            }[match_type]
+            match_descs_result: list[str] = []
+            if target_user_ids:
+                if len(target_user_ids) == 1 and set(match_types) == {'user'}:
+                    match_descs_result.append(f'用户 {user.mention if user else "[unknown]"}')
+                else:
+                    match_descs_result.append(f'用户 ID `{sorted(target_user_ids)}`')
+            if target_webhook_ids:
+                match_descs_result.append(f'Webhook ID `{sorted(target_webhook_ids)}`')
+            if nick_pattern_filter:
+                match_descs_result.append(f'昵称通配符 `{nick_pattern_filter}`')
+            if content_pattern_filter:
+                match_descs_result.append(f'内容通配符 `{content_pattern_filter}`')
+            match_desc_result = ' / '.join(match_descs_result) if match_descs_result else '无过滤条件'
+
+            time_desc_result: str
+            if has_time_range:
+                parts = []
+                if start:
+                    parts.append(f'起始 `{start}`')
+                if end:
+                    parts.append(f'结束 `{end}`')
+                time_desc_result = ', '.join(parts) if parts else '不限制'
+            elif minutes_limit > 0:
+                time_desc_result = f'最近 **{minutes_limit}** 分钟'
+            else:
+                time_desc_result = '不限制'
 
             await interaction.followup.send(
                 f':broom: 批量清除消息完成 :broom:'
                 f'\n范围: **{scope_text}**{channel_info}'
-                f'\n匹配方式: **{match_desc}**'
-                f'\n时间范围: {"最近 **" + str(minutes_limit) + "** 分钟" if minutes_limit > 0 else "不限制"}'
-                f'\n每频道检查上限: **{message_limit if message_limit > 0 else "不限制"}** 条, 匹配消息 **{checked_count}** 条'
+                f'\n匹配方式: **{match_desc_result}**'
+                f'\n时间范围: {time_desc_result}'
+                + (f'\n每频道检查上限: **{message_limit}** 条' if not has_time_range and message_limit > 0 else '')
+                + f'\n匹配消息 **{checked_count}** 条'
                 f'\n成功删除: **{success_count}** 条'
                 + (f'\n因超过 14 天不可删: **{too_old_count}** 条' if too_old_count > 0 else '')
                 + (f'\n其他原因失败: **{failed_count}** 条' if failed_count > 0 else '')
