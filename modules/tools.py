@@ -57,14 +57,9 @@ def _parse_time_or_id(
 
 def _parse_flags(content: str) -> dict[str, str]:
     """
-    从消息内容中解析 --key=value 格式的标志
+    从消息内容中解析 --key=value 格式的标志 (deprecated, use u.parse_flags)
     """
-    flags: dict[str, str] = {}
-    for match in re.finditer(r'--([\w-]+)=(?:"([^"]*)"|(\S+))', content):
-        key = match.group(1)
-        value = match.group(2) if match.group(2) is not None else match.group(3)
-        flags[key] = value
-    return flags
+    return u.parse_flags(content)
 
 
 class ConfirmClearView(discord.ui.View):

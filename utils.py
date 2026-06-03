@@ -1,6 +1,7 @@
 import time
 from pathlib import Path
 import os
+import re
 
 from loguru import logger as l
 import discord
@@ -97,3 +98,15 @@ async def send_msg(
             return await source.send(
                 content=content, delete_after=delete_after, **kwargs
             )  # ty:ignore[no-matching-overload]
+
+
+def parse_flags(content: str) -> dict[str, str]:
+    """
+    从消息内容中解析 --key=value 格式的标志
+    """
+    flags: dict[str, str] = {}
+    for match in re.finditer(r'--([\w-]+)=(?:"([^"]*)"|(\S+))', content):
+        key = match.group(1)
+        value = match.group(2) if match.group(2) is not None else match.group(3)
+        flags[key] = value
+    return flags
