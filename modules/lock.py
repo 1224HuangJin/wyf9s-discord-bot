@@ -100,6 +100,8 @@ class LockModule:
         if self.c.lock.prefix:
             self._register_prefix_commands(client)
 
+    async def start_scheduler(self):
+        """在 on_ready 中调用以启动定时任务"""
         self._check_schedules.start()
 
     def _register_slash_commands(self, client: commands.Bot):

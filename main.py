@@ -191,6 +191,10 @@ async def on_ready():
         else:
             l.warning(f"Emoji list sync failed: {err}")
 
+    if c.lock.enabled:
+        await lock_module.start_scheduler()
+        l.info("Lock scheduler started.")
+
 
 client.run(c.token)
 
