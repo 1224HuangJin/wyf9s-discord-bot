@@ -230,7 +230,7 @@ class ToolsModule:
             message_count: int | None = None,
             within_minutes: int | None = None,
             scope: str = 'channel',
-            channel: discord.TextChannel | None = None,
+            channel: discord.TextChannel | discord.VoiceChannel | discord.StageChannel | None = None,
             start: str | None = None,
             end: str | None = None,
         ):
@@ -328,7 +328,7 @@ class ToolsModule:
                 )
                 return
 
-            target_channels: list[discord.TextChannel] = []
+            target_channels: list[discord.TextChannel | discord.VoiceChannel | discord.StageChannel] = []
             if scope == 'channel':
                 if channel:
                     target_channels.append(channel)
@@ -338,7 +338,10 @@ class ToolsModule:
                 if not interaction.guild:
                     await interaction.followup.send(':x: **此指令只能在服务器内使用** :x:', ephemeral=True)
                     return
-                target_channels = [ch for ch in interaction.guild.channels if isinstance(ch, discord.TextChannel)]
+                target_channels = [
+                    ch for ch in interaction.guild.channels
+                    if isinstance(ch, (discord.TextChannel, discord.VoiceChannel, discord.StageChannel))
+                ]
 
             start_obj: discord.Object | None = None
             start_dt: datetime | None = None
@@ -536,16 +539,16 @@ class ToolsModule:
             match_descs_result: list[str] = []
             if target_user_ids:
                 if len(target_user_ids) == 1 and set(match_types) == {'user'}:
-                    match_descs_result.append(f'用户 {user.mention if user else "[unknown]"}')
+                    match_descs_result.append(f'**用户 {user.mention if user else "[unknown]"}**')
                 else:
-                    match_descs_result.append(f'用户 ID `{sorted(target_user_ids)}`')
+                    match_descs_result.append(f'**用户 ID `{sorted(target_user_ids)}`**')
             if target_webhook_ids:
-                match_descs_result.append(f'Webhook ID `{sorted(target_webhook_ids)}`')
+                match_descs_result.append(f'**Webhook ID `{sorted(target_webhook_ids)}`**')
             if nick_pattern_filter:
-                match_descs_result.append(f'昵称通配符 `{nick_pattern_filter}`')
+                match_descs_result.append(f'**昵称通配符 `{nick_pattern_filter}`**')
             if content_pattern_filter:
-                match_descs_result.append(f'内容通配符 `{content_pattern_filter}`')
-            match_desc_result = ' / '.join(match_descs_result) if match_descs_result else '无过滤条件'
+                match_descs_result.append(f'**内容通配符 `{content_pattern_filter}`**')
+            match_desc_result = ' / '.join(match_descs_result) if match_descs_result else '**无过滤条件**'
 
             time_desc_result: str
             if has_time_range:
@@ -563,7 +566,7 @@ class ToolsModule:
             await interaction.followup.send(
                 f':broom: 批量清除消息完成 :broom:'
                 f'\n范围: **{scope_text}**{channel_info}'
-                f'\n匹配方式: **{match_desc_result}**'
+                f'\n匹配方式: {match_desc_result}'
                 f'\n时间范围: {time_desc_result}'
                 + (f'\n每频道检查上限: **{message_limit}** 条' if not has_time_range and message_limit > 0 else '')
                 + f'\n匹配消息 **{checked_count}** 条'
