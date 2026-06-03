@@ -206,6 +206,22 @@ class _ToolsConfigModel(BaseModel):
     """是否注册前缀指令"""
 
 
+class _LockConfigModel(BaseModel):
+    """
+    频道锁定模块配置
+    指令: lock, unlock, plan-lock
+    """
+
+    enabled: bool = False
+    """是否启用锁定模块"""
+
+    slash: bool = True
+    """是否注册斜杠指令"""
+
+    prefix: bool = True
+    """是否注册前缀指令"""
+
+
 class ConfigModel(BaseModel):
     """
     基础配置
@@ -227,6 +243,7 @@ class ConfigModel(BaseModel):
     audit: _AuditLogConfigModel = _AuditLogConfigModel()
     emoji: _EmojiConfigModel = _EmojiConfigModel()
     tools: _ToolsConfigModel = _ToolsConfigModel()
+    lock: _LockConfigModel = _LockConfigModel()
     rmtodo: _AutoRemoveTodoConfigModel = _AutoRemoveTodoConfigModel()
     rmmsg: _AutoRemoveMessageConfigModel = _AutoRemoveMessageConfigModel()
     voicechannel: _VoiceChannelConfigModel = _VoiceChannelConfigModel()

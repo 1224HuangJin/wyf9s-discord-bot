@@ -31,6 +31,7 @@ Fix any remaining errors before committing.
 
 ```
 config.yaml        # Runtime config (gitignored)
+schedules.yaml     # Scheduled lock data (auto-generated)
 config.py          # Pydantic config models + loader
 main.py            # Bot entry point, module loading
 utils.py           # Shared utilities
@@ -38,6 +39,7 @@ modules/
   audit.py         # Audit logging service (shared)
   emoji.py         # Emoji/sticker commands
   tools.py         # Utility/moderation commands
+  lock.py          # Channel lock/unlock + scheduled locks
   manage.py        # Auto-delete event handlers
   voice.py         # Voice channel commands
 ```

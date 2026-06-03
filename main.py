@@ -54,6 +54,7 @@ import utils as u  # noqa: E402
 from modules.audit import AuditLogger  # noqa: E402
 from modules.emoji import EmojiModule  # noqa: E402
 from modules.tools import ToolsModule  # noqa: E402
+from modules.lock import LockModule  # noqa: E402
 from modules.manage import ManageModule  # noqa: E402
 from modules.voice import VoiceChannelModule  # noqa: E402
 
@@ -144,6 +145,12 @@ if c.tools.enabled:
     if c.tools.slash:
         has_slash_commands = True
     l.info("Tools module enabled.")
+
+if c.lock.enabled:
+    lock_module = LockModule(config=c, client=client, audit=audit)
+    if c.lock.slash:
+        has_slash_commands = True
+    l.info("Lock module enabled.")
 
 if c.rmmsg.enabled or c.rmtodo.enabled:
     manage_module = ManageModule(config=c, client=client)
