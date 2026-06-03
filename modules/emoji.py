@@ -97,10 +97,7 @@ class EmojiModule:
                 f"> **Commit**: [`{self.emoji.commit_id}`](https://github.com/siiway/ghimg/commit/{self.emoji.commit_id})\n"
                 f"> **Emojis**: `{len(self.emoji.emojis)}`"
             )
-            if isinstance(source, discord.Interaction):
-                await source.followup.send(msg)
-            else:
-                await source.send(msg)
+            await u.send_msg(source, msg)
             if self.audit:
                 await self.audit.log(
                     action="emoji-update",
@@ -110,11 +107,9 @@ class EmojiModule:
                     detail=f"更新表情包库 (共 {len(self.emoji.emojis)} 个)",
                 )
         else:
-            err_msg = f"**:x: Update Emoji Failed: {err}**"
-            if isinstance(source, discord.Interaction):
-                await source.followup.send(err_msg, ephemeral=True)
-            else:
-                await source.send(err_msg)
+            await u.send_msg(
+                source, f"**:x: Update Emoji Failed: {err}**", ephemeral=True
+            )
 
     async def _handle_emoji_info(self, source):
         msg = (
@@ -126,20 +121,16 @@ class EmojiModule:
             f"> **Emoji Count**: {len(self.emoji.emojis)}\n"
             f"> **Emoji Source**: [`emoji.json`]({self.c.emoji.base_url}/emoji.json?disable-cache)"
         )
-        if isinstance(source, discord.Interaction):
-            await source.response.send_message(msg)
-        else:
-            await source.send(msg)
+        await u.send_msg(source, msg)
 
     async def _handle_emoji(self, source, name: str):
         if name not in self.emoji.emojis:
-            err_msg = ":x: **无效的表情包名称，请从列表中选择**"
-            if isinstance(source, discord.Interaction):
-                await source.response.send_message(
-                    err_msg, ephemeral=True, delete_after=10
-                )
-            else:
-                await source.send(err_msg, delete_after=10)
+            await u.send_msg(
+                source,
+                ":x: **无效的表情包名称，请从列表中选择**",
+                ephemeral=True,
+                delete_after=10,
+            )
             return
 
         imgurl = f"{self.c.emoji.base_url}/{name}"
@@ -153,24 +144,21 @@ class EmojiModule:
                 async with session.get(imgurl, proxy=self.c.proxy) as resp:
                     img = await resp.read()
                     with io.BytesIO(img) as file:
-                        send_kwargs = {
-                            "content": "",
-                            "file": discord.File(
+                        await u.send_msg(
+                            source,
+                            "",
+                            file=discord.File(
                                 fp=file,
                                 filename=name,
                                 description=f"Emoji (sticker): {name}",
                             ),
-                        }
-                        if isinstance(source, discord.Interaction):
-                            await source.followup.send(**send_kwargs)
-                        else:
-                            await source.send(**send_kwargs)
+                        )
         except Exception as error:
-            err_msg = f"> Fetch emoji [{name}]({imgurl}) **ERROR**: `{error}`"
-            if isinstance(source, discord.Interaction):
-                await source.followup.send(err_msg, ephemeral=True)
-            else:
-                await source.send(err_msg)
+            await u.send_msg(
+                source,
+                f"> Fetch emoji [{name}]({imgurl}) **ERROR**: `{error}`",
+                ephemeral=True,
+            )
 
     async def update_emoji_list(self) -> tuple[bool, str]:
         l.info("[emoji] Updating emoji list...")

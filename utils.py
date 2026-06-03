@@ -3,6 +3,8 @@ from pathlib import Path
 import os
 
 from loguru import logger as l
+import discord
+from discord.ext import commands
 import aiohttp
 
 
@@ -60,3 +62,38 @@ async def get_json(url: str, **params) -> tuple[bool, dict, str]:
     except Exception as e:
         l.warning(f"[get_json] Request {url} error: {e}")
         return False, {}, str(e)
+
+
+async def send_msg(
+    source: discord.Interaction | commands.Context,
+    content: str | None = None,
+    *,
+    ephemeral: bool = False,
+    delete_after: float | None = None,
+    **kwargs,
+) -> discord.Message | None:
+    """
+    统一发送消息: 支持 Interaction (followup) 和 Context (reply to original message)
+
+    prefix 模式下自动回复原消息, 失败则 fallback 到直接发送
+    """
+    if isinstance(source, discord.Interaction):
+        if source.response.is_done():
+            return await source.followup.send(content, ephemeral=ephemeral, **kwargs)  # type: ignore
+        else:
+            await source.response.send_message(
+                content, ephemeral=ephemeral, delete_after=delete_after, **kwargs
+            )
+            return None
+    else:
+        try:
+            return await source.send(
+                content=content,
+                reference=source.message,
+                delete_after=delete_after,
+                **kwargs,
+            )  # ty:ignore[no-matching-overload]
+        except (discord.HTTPException, discord.NotFound):
+            return await source.send(
+                content=content, delete_after=delete_after, **kwargs
+            )  # ty:ignore[no-matching-overload]

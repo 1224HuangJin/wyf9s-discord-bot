@@ -12,6 +12,7 @@ from discord.ext import commands
 
 from config import ConfigModel
 from modules.audit import AuditLogger
+import utils as u
 
 
 def _parse_time_or_id(
@@ -428,29 +429,22 @@ class ToolsModule:
                 min_num, max_num = max_num, min_num
 
             result = random.randint(min_num, max_num)
-            msg = f":game_die: `{min_num}` - `{max_num}` 的随机数：**`{result}`**"
-            if isinstance(source, discord.Interaction):
-                await source.response.send_message(msg)
-            else:
-                await source.send(msg)
+            await u.send_msg(
+                source, f":game_die: `{min_num}` - `{max_num}` 的随机数：**`{result}`**"
+            )
         except ValueError:
-            err_msg = ":x: 请输入有效的整数范围！"
-            if isinstance(source, discord.Interaction):
-                await source.response.send_message(
-                    err_msg, ephemeral=True, delete_after=10
-                )
-            else:
-                await source.send(err_msg, delete_after=10)
+            await u.send_msg(
+                source, ":x: 请输入有效的整数范围！", ephemeral=True, delete_after=10
+            )
 
     async def _handle_uuid(self, source, delete_after: int):
         now = int(datetime.now().timestamp())
-        msg = f":lock: 随机生成 UUID: **```{uuid()}```**> 此条消息仅你可见, 且将在 <t:{now + delete_after}:R> 删除"
-        if isinstance(source, discord.Interaction):
-            await source.response.send_message(
-                msg, ephemeral=True, delete_after=delete_after
-            )
-        else:
-            await source.send(msg, delete_after=delete_after)
+        await u.send_msg(
+            source,
+            f":lock: 随机生成 UUID: **```{uuid()}```**> 此条消息仅你可见, 且将在 <t:{now + delete_after}:R> 删除",
+            ephemeral=True,
+            delete_after=delete_after,
+        )
 
     async def _handle_delete(
         self, source, message_id: str, show_to_public: bool = False
@@ -458,21 +452,21 @@ class ToolsModule:
         user = source.user if isinstance(source, discord.Interaction) else source.author
 
         if not self._can_use_delete(user):
-            err_msg = ":x: **你没有权限使用此指令** :x:"
-            if isinstance(source, discord.Interaction):
-                await self._deny(source, err_msg)
-            else:
-                await source.send(err_msg, delete_after=10)
+            await u.send_msg(
+                source,
+                ":x: **你没有权限使用此指令** :x:",
+                ephemeral=True,
+                delete_after=10,
+            )
             return
 
         if not message_id:
-            err_msg = ":x: **未指定要删除的消息 (通过回复消息或指定消息 ID)** :x:"
-            if isinstance(source, discord.Interaction):
-                await source.response.send_message(
-                    err_msg, ephemeral=True, delete_after=10
-                )
-            else:
-                await source.send(err_msg, delete_after=10)
+            await u.send_msg(
+                source,
+                ":x: **未指定要删除的消息 (通过回复消息或指定消息 ID)** :x:",
+                ephemeral=True,
+                delete_after=10,
+            )
             return
 
         try:
@@ -481,43 +475,39 @@ class ToolsModule:
             message = channel.get_partial_message(message_id_int)
             await message.delete()
         except discord.Forbidden:
-            err_msg = ":x: **权限不足, 无法删除此消息** :x:"
-            if isinstance(source, discord.Interaction):
-                await source.response.send_message(
-                    err_msg, ephemeral=True, delete_after=10
-                )
-            else:
-                await source.send(err_msg, delete_after=10)
+            await u.send_msg(
+                source,
+                ":x: **权限不足, 无法删除此消息** :x:",
+                ephemeral=True,
+                delete_after=10,
+            )
         except discord.NotFound:
-            err_msg = f":x: **找不到 ID 为 `{message_id}` 的消息** :x:"
-            if isinstance(source, discord.Interaction):
-                await source.response.send_message(
-                    err_msg, ephemeral=True, delete_after=10
-                )
-            else:
-                await source.send(err_msg, delete_after=10)
+            await u.send_msg(
+                source,
+                f":x: **找不到 ID 为 `{message_id}` 的消息** :x:",
+                ephemeral=True,
+                delete_after=10,
+            )
         except ValueError:
-            err_msg = f":x: **消息 ID 不为整数: `{message_id}`** :x:"
-            if isinstance(source, discord.Interaction):
-                await source.response.send_message(
-                    err_msg, ephemeral=True, delete_after=10
-                )
-            else:
-                await source.send(err_msg, delete_after=10)
+            await u.send_msg(
+                source,
+                f":x: **消息 ID 不为整数: `{message_id}`** :x:",
+                ephemeral=True,
+                delete_after=10,
+            )
         except Exception as e:
-            err_msg = f":x: **删除消息 `{message_id}` 时出错: `{e}`** :x:"
-            if isinstance(source, discord.Interaction):
-                await source.response.send_message(
-                    err_msg, ephemeral=True, delete_after=10
-                )
-            else:
-                await source.send(err_msg, delete_after=10)
+            await u.send_msg(
+                source,
+                f":x: **删除消息 `{message_id}` 时出错: `{e}`** :x:",
+                ephemeral=True,
+                delete_after=10,
+            )
         else:
-            ok_msg = f":white_check_mark: **删除消息 `{message_id}` 成功!** :white_check_mark:"
-            if isinstance(source, discord.Interaction):
-                await source.response.send_message(ok_msg, ephemeral=not show_to_public)
-            else:
-                await source.send(ok_msg)
+            await u.send_msg(
+                source,
+                f":white_check_mark: **删除消息 `{message_id}` 成功!** :white_check_mark:",
+                ephemeral=not show_to_public,
+            )
             if self.audit:
                 await self.audit.log(
                     action="delete",
@@ -565,7 +555,7 @@ class ToolsModule:
             end=end,
         )
 
-        await interaction.followup.send(result, ephemeral=True)
+        await u.send_msg(interaction, result, ephemeral=True)
 
     async def _handle_clear_message_prefix(
         self,
@@ -605,7 +595,7 @@ class ToolsModule:
             end=end,
         )
 
-        await ctx.send(result)
+        await u.send_msg(ctx, result)
 
     async def _do_clear_message(
         self,
@@ -970,28 +960,31 @@ class ToolsModule:
         user = source.user if isinstance(source, discord.Interaction) else source.author
 
         if not category and not before and not after:
-            err_msg = ":x: **参数错误：请至少提供 `category`、`before` 或 `after` 中的一个参数**"
-            if isinstance(source, discord.Interaction):
-                await source.response.send_message(err_msg, ephemeral=True)
-            else:
-                await source.send(err_msg, delete_after=10)
+            await u.send_msg(
+                source,
+                ":x: **参数错误：请至少提供 `category`、`before` 或 `after` 中的一个参数**",
+                ephemeral=True,
+                delete_after=10,
+            )
             return
 
         if before and after:
-            err_msg = ":x: **参数错误：不能同时指定 `before` 和 `after`**"
-            if isinstance(source, discord.Interaction):
-                await source.response.send_message(err_msg, ephemeral=True)
-            else:
-                await source.send(err_msg, delete_after=10)
+            await u.send_msg(
+                source,
+                ":x: **参数错误：不能同时指定 `before` 和 `after`**",
+                ephemeral=True,
+                delete_after=10,
+            )
             return
 
         channel = target_channel or source.channel
         if not isinstance(channel, discord.abc.GuildChannel):
-            err_msg = ":x: **此指令只能对服务器频道使用**"
-            if isinstance(source, discord.Interaction):
-                await source.response.send_message(err_msg, ephemeral=True)
-            else:
-                await source.send(err_msg, delete_after=10)
+            await u.send_msg(
+                source,
+                ":x: **此指令只能对服务器频道使用**",
+                ephemeral=True,
+                delete_after=10,
+            )
             return
 
         kwargs = {}
@@ -1029,11 +1022,10 @@ class ToolsModule:
             elif after:
                 msg_parts.append(f"`{after.name}` 之后")
 
-            ok_msg = f":white_check_mark: **已成功将 {channel.mention} 移动到 {' / '.join(msg_parts)}**"
-            if isinstance(source, discord.Interaction):
-                await source.response.send_message(ok_msg)
-            else:
-                await source.send(ok_msg)
+            await u.send_msg(
+                source,
+                f":white_check_mark: **已成功将 {channel.mention} 移动到 {' / '.join(msg_parts)}**",
+            )
 
             if self.audit:
                 await self.audit.log(
@@ -1044,23 +1036,26 @@ class ToolsModule:
                     detail=f"将频道 `{channel.name}` 移动到 {' / '.join(msg_parts)}",
                 )
         except discord.Forbidden:
-            err_msg = ":x: **权限不足：我需要 `管理频道 (Manage Channels)` 权限才能执行此操作，或者我的角色层级不够**"
-            if isinstance(source, discord.Interaction):
-                await source.response.send_message(err_msg, ephemeral=True)
-            else:
-                await source.send(err_msg, delete_after=10)
+            await u.send_msg(
+                source,
+                ":x: **权限不足：我需要 `管理频道 (Manage Channels)` 权限才能执行此操作，或者我的角色层级不够**",
+                ephemeral=True,
+                delete_after=10,
+            )
         except discord.HTTPException as e:
-            err_msg = f":x: **移动失败：API 请求错误 ({e.status} - {e.text})**"
-            if isinstance(source, discord.Interaction):
-                await source.response.send_message(err_msg, ephemeral=True)
-            else:
-                await source.send(err_msg, delete_after=10)
+            await u.send_msg(
+                source,
+                f":x: **移动失败：API 请求错误 ({e.status} - {e.text})**",
+                ephemeral=True,
+                delete_after=10,
+            )
         except Exception as e:
-            err_msg = f":x: **移动失败：发生未知错误：`{e}`**"
-            if isinstance(source, discord.Interaction):
-                await source.response.send_message(err_msg, ephemeral=True)
-            else:
-                await source.send(err_msg, delete_after=10)
+            await u.send_msg(
+                source,
+                f":x: **移动失败：发生未知错误：`{e}`**",
+                ephemeral=True,
+                delete_after=10,
+            )
 
     # ========== Permission Helpers ==========
 

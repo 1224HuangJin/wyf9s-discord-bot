@@ -6,6 +6,7 @@ from discord.ext import commands
 
 from config import ConfigModel
 from modules.audit import AuditLogger
+import utils as u
 
 
 class VoiceChannelModule:
@@ -66,13 +67,12 @@ class VoiceChannelModule:
         user = source.user if isinstance(source, discord.Interaction) else source.author
 
         if not self._check_user_allowed(user):
-            err_msg = (
-                f"你没有权限使用此命令 *(UserID: `{user.id}`, UserName: `{user.name}`)*"
+            await u.send_msg(
+                source,
+                f"你没有权限使用此命令 *(UserID: `{user.id}`, UserName: `{user.name}`)*",
+                ephemeral=True,
+                delete_after=10,
             )
-            if isinstance(source, discord.Interaction):
-                await source.response.send_message(err_msg, ephemeral=True)
-            else:
-                await source.send(err_msg, delete_after=10)
             return
 
         if channel is None and isinstance(user, discord.Member):
@@ -81,20 +81,19 @@ class VoiceChannelModule:
                 or not user.voice.channel
                 or isinstance(user.voice.channel, discord.StageChannel)
             ):
-                err_msg = "你需要先加入一个语音频道，或者明确指定要加入的频道"
-                if isinstance(source, discord.Interaction):
-                    await source.response.send_message(err_msg, ephemeral=True)
-                else:
-                    await source.send(err_msg, delete_after=10)
+                await u.send_msg(
+                    source,
+                    "你需要先加入一个语音频道，或者明确指定要加入的频道",
+                    ephemeral=True,
+                    delete_after=10,
+                )
                 return
             channel = user.voice.channel
 
         if not isinstance(channel, discord.VoiceChannel):
-            err_msg = "目标不是语音频道"
-            if isinstance(source, discord.Interaction):
-                await source.response.send_message(err_msg, ephemeral=True)
-            else:
-                await source.send(err_msg, delete_after=10)
+            await u.send_msg(
+                source, "目标不是语音频道", ephemeral=True, delete_after=10
+            )
             return
 
         try:
@@ -104,26 +103,19 @@ class VoiceChannelModule:
                     isinstance(guild.voice_client.channel, discord.VoiceChannel)
                     and guild.voice_client.channel.id == channel.id
                 ):
-                    msg = f"已经在 **{channel.name}** 里了"
-                    if isinstance(source, discord.Interaction):
-                        await source.response.send_message(msg, ephemeral=True)
-                    else:
-                        await source.send(msg, delete_after=10)
+                    await u.send_msg(
+                        source,
+                        f"已经在 **{channel.name}** 里了",
+                        ephemeral=True,
+                        delete_after=10,
+                    )
                     return
                 await guild.voice_client.disconnect(force=False)
                 await channel.connect(self_deaf=True, self_mute=True)
-                msg = f"已移动到 **{channel.name}**"
-                if isinstance(source, discord.Interaction):
-                    await source.response.send_message(msg)
-                else:
-                    await source.send(msg)
+                await u.send_msg(source, f"已移动到 **{channel.name}**")
             else:
                 await channel.connect(self_deaf=True, self_mute=True)
-                msg = f"已加入 **{channel.name}**"
-                if isinstance(source, discord.Interaction):
-                    await source.response.send_message(msg)
-                else:
-                    await source.send(msg)
+                await u.send_msg(source, f"已加入 **{channel.name}**")
 
             await self.client.change_presence(
                 activity=discord.Activity(
@@ -142,64 +134,49 @@ class VoiceChannelModule:
 
         except discord.errors.ConnectionClosed as exc:
             if exc.code == 4017:
-                err_msg = "频道要求 DAVE 加密，但连接失败"
-                if isinstance(source, discord.Interaction):
-                    await source.followup.send(err_msg, ephemeral=True)
-                else:
-                    await source.send(err_msg, delete_after=10)
+                await u.send_msg(
+                    source,
+                    "频道要求 DAVE 加密，但连接失败",
+                    ephemeral=True,
+                    delete_after=10,
+                )
             else:
                 raise
         except discord.ClientException as e:
-            err_msg = f"连接失败：{e}"
-            if isinstance(source, discord.Interaction):
-                await source.response.send_message(err_msg, ephemeral=True)
-            else:
-                await source.send(err_msg, delete_after=10)
+            await u.send_msg(source, f"连接失败：{e}", ephemeral=True, delete_after=10)
             l.error(f"Failed to join voice channel: {e}")
         except Exception as e:
-            err_msg = f"发生错误：{type(e).__name__}"
-            if isinstance(source, discord.Interaction):
-                await source.response.send_message(err_msg, ephemeral=True)
-            else:
-                await source.send(err_msg, delete_after=10)
+            await u.send_msg(
+                source, f"发生错误：{type(e).__name__}", ephemeral=True, delete_after=10
+            )
             l.error(f"Unexpected error in joinvc: {type(e).__name__}: {e}")
 
     async def _handle_leavevc(self, source):
         user = source.user if isinstance(source, discord.Interaction) else source.author
 
         if not self._check_user_allowed(user):
-            err_msg = "你没有权限使用此命令"
-            if isinstance(source, discord.Interaction):
-                await source.response.send_message(err_msg, ephemeral=True)
-            else:
-                await source.send(err_msg, delete_after=10)
+            await u.send_msg(
+                source, "你没有权限使用此命令", ephemeral=True, delete_after=10
+            )
             return
 
         guild = source.guild
         if not guild or not guild.voice_client:
-            err_msg = "我目前没在任何语音频道里"
-            if isinstance(source, discord.Interaction):
-                await source.response.send_message(err_msg, ephemeral=True)
-            else:
-                await source.send(err_msg, delete_after=10)
+            await u.send_msg(
+                source, "我目前没在任何语音频道里", ephemeral=True, delete_after=10
+            )
             return
 
         if not isinstance(guild.voice_client.channel, discord.VoiceChannel):
-            err_msg = "机器人未在有效的语音频道中"
-            if isinstance(source, discord.Interaction):
-                await source.response.send_message(err_msg, ephemeral=True)
-            else:
-                await source.send(err_msg, delete_after=10)
+            await u.send_msg(
+                source, "机器人未在有效的语音频道中", ephemeral=True, delete_after=10
+            )
             return
 
         channel_name = guild.voice_client.channel.name
         await guild.voice_client.disconnect(force=False)
 
-        msg = f"已离开 **{channel_name}**"
-        if isinstance(source, discord.Interaction):
-            await source.response.send_message(msg)
-        else:
-            await source.send(msg)
+        await u.send_msg(source, f"已离开 **{channel_name}**")
 
         await self.client.change_presence(
             activity=discord.Activity(
