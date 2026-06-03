@@ -1,6 +1,5 @@
 from fnmatch import fnmatch
 
-from loguru import logger as l
 import discord
 from discord.ext import commands
 
@@ -21,13 +20,14 @@ class ManageModule:
             if self.c.rmmsg.enabled:
                 for nick in self.c.rmmsg.nicks:
                     if fnmatch(message.author.name, nick):
-                        await message.delete(
-                            delay=2
-                        )
+                        await message.delete(delay=2)
                         break
 
             # 处理 To-Do List Bot 在 todo 频道的新消息
-            if self.c.rmtodo.enabled and (message.channel.id in self.c.rmtodo.todo_channels) and (message.author.id == self.c.rmtodo.author_id) and (not message.embeds):
-                await message.delete(
-                    delay=self.c.rmtodo.remove_delay
-                )
+            if (
+                self.c.rmtodo.enabled
+                and (message.channel.id in self.c.rmtodo.todo_channels)
+                and (message.author.id == self.c.rmtodo.author_id)
+                and (not message.embeds)
+            ):
+                await message.delete(delay=self.c.rmtodo.remove_delay)

@@ -24,124 +24,168 @@ class EmojiModule:
     emoji: EmojiModel = EmojiModel()
     c: ConfigModel
     client: commands.Bot
-    audit: AuditLogger
+    audit: AuditLogger | None
 
-    def __init__(self, config: ConfigModel, client: commands.Bot, audit: AuditLogger):
+    def __init__(
+        self, config: ConfigModel, client: commands.Bot, audit: AuditLogger | None
+    ):
         self.c = config
         self.client = client
         self.audit = audit
 
-        @client.tree.command(
-            name='emoji-update',
-            description='更新表情包库数据'
-        )
-        async def emoji_update(interaction: discord.Interaction):
-            await interaction.response.defer()
-            succ, err = await self.update_emoji_list()
-            if succ:
-                # Success
-                await interaction.followup.send(
-                    f'''**:white_check_mark: Update Emoji Success!**
-> **Build Time**: <t:{self.emoji.utc_build_timestamp}:f>
-> **Commit**: [`{self.emoji.commit_id}`](https://github.com/siiway/ghimg/commit/{self.emoji.commit_id})
-> **Emojis**: `{len(self.emoji.emojis)}`'''
-                )
-                await self.audit.log(
-                    action='/emoji-update',
-                    user=interaction.user,
-                    guild=interaction.guild,
-                    channel=interaction.channel,
-                    detail=f'更新表情包库 (共 {len(self.emoji.emojis)} 个)',
-                )
-            else:
-                # Error
-                await interaction.followup.send(
-                    f'**:x: Update Emoji Failed: {err}**',
-                    ephemeral=True
-                )
+        if self.c.emoji.slash:
+            self._register_slash_commands(client)
 
-        @client.tree.command(
-            name='emoji-info',
-            description='查看表情包库相关信息'
-        )
+        if self.c.emoji.prefix:
+            self._register_prefix_commands(client)
+
+    def _register_slash_commands(self, client: commands.Bot):
+        @client.tree.command(name="emoji-update", description="更新表情包库数据")
+        async def emoji_update(interaction: discord.Interaction):
+            await self._handle_emoji_update(interaction)
+
+        @client.tree.command(name="emoji-info", description="查看表情包库相关信息")
         async def emoji_info(interaction: discord.Interaction):
-            await interaction.response.send_message(
-                f'''**:information_source: Emojis Info**
-        > **Build Time**: <t:{self.emoji.utc_build_timestamp}:f>
-        > **Build on CF Pages**: {"Yes" if self.emoji.is_cf_pages else "No"}
-        > **Commit ID**: [`{self.emoji.commit_id}`](https://github.com/siiway/ghimg/commit/{self.emoji.commit_id})
-        > **Commit Branch**: `{self.emoji.commit_branch}`
-        > **Emoji Count**: {len(self.emoji.emojis)}
-        > **Emoji Source**: [`emoji.json`]({self.c.emoji.base_url}/emoji.json?disable-cache)'''
-            )
+            await self._handle_emoji_info(interaction)
 
         # ----- Send ------
 
         async def emoji_autocomplete(
-            interaction: discord.Interaction,
-            current: str  # 用户当前输入的内容
+            interaction: discord.Interaction, current: str
         ) -> list[app_commands.Choice[str]]:
-            '''
-            表情包获取自动生成下拉菜单
-            '''
-            # 根据输入内容过滤选项
             filtered = [
                 app_commands.Choice(name=name, value=name)
                 for name in self.emoji.emojis
-                if current.lower() in name.lower()  # 不区分大小写搜索
-            ][:self.c.emoji.max_results]  # 最多显示 ?? 个选项
+                if current.lower() in name.lower()
+            ][: self.c.emoji.max_results]
             return filtered
 
-        @client.tree.command(
-            name='emoji',
-            description='使用库中的表情包'
-        )
+        @client.tree.command(name="emoji", description="使用库中的表情包")
         @app_commands.describe(name="输入名称搜索表情包")
         @app_commands.autocomplete(name=emoji_autocomplete)
-        async def emoji(
-            interaction: discord.Interaction,
-            name: str
-        ):
-            if name not in self.emoji.emojis:
-                return await interaction.response.send_message(
-                    ":x: **无效的表情包名称，请从列表中选择**",
-                    ephemeral=True,
-                    delete_after=10
-                )
+        async def emoji(interaction: discord.Interaction, name: str):
+            await self._handle_emoji(interaction, name)
 
-            imgurl = f'{self.c.emoji.base_url}/{name}'
-            await interaction.response.defer()
-            try:
-                async with aiohttp.ClientSession() as session:  # creates session
-                    async with session.get(imgurl, proxy=self.c.proxy) as resp:  # gets image from url
-                        img = await resp.read()  # reads image from response
-                        with io.BytesIO(img) as file:  # converts to file-like object
-                            await interaction.followup.send(
-                                '',
-                                file=discord.File(
-                                    fp=file,
-                                    filename=name,
-                                    description=f'Emoji (sticker): {name}'
-                                )
-                            )
-            except Exception as error:
-                await interaction.followup.send(
-                    f'> Fetch emoji [{name}]({imgurl}) **ERROR**: `{error}`',
-                    ephemeral=True
+    def _register_prefix_commands(self, client: commands.Bot):
+        @client.command(name="emoji-update")
+        async def prefix_emoji_update(ctx: commands.Context):
+            await self._handle_emoji_update(ctx)
+
+        @client.command(name="emoji-info")
+        async def prefix_emoji_info(ctx: commands.Context):
+            await self._handle_emoji_info(ctx)
+
+        @client.command(name="emoji")
+        async def prefix_emoji(ctx: commands.Context, *, name: str):
+            await self._handle_emoji(ctx, name)
+
+    # ========== Shared Logic ==========
+
+    async def _handle_emoji_update(self, source):
+        user = source.user if isinstance(source, discord.Interaction) else source.author
+
+        if isinstance(source, discord.Interaction):
+            await source.response.defer()
+        else:
+            await source.defer()
+
+        succ, err = await self.update_emoji_list()
+        if succ:
+            msg = (
+                f"**:white_check_mark: Update Emoji Success!**\n"
+                f"> **Build Time**: <t:{self.emoji.utc_build_timestamp}:f>\n"
+                f"> **Commit**: [`{self.emoji.commit_id}`](https://github.com/siiway/ghimg/commit/{self.emoji.commit_id})\n"
+                f"> **Emojis**: `{len(self.emoji.emojis)}`"
+            )
+            if isinstance(source, discord.Interaction):
+                await source.followup.send(msg)
+            else:
+                await source.send(msg)
+            if self.audit:
+                await self.audit.log(
+                    action="emoji-update",
+                    user=user,
+                    guild=source.guild,
+                    channel=source.channel,
+                    detail=f"更新表情包库 (共 {len(self.emoji.emojis)} 个)",
                 )
+        else:
+            err_msg = f"**:x: Update Emoji Failed: {err}**"
+            if isinstance(source, discord.Interaction):
+                await source.followup.send(err_msg, ephemeral=True)
+            else:
+                await source.send(err_msg)
+
+    async def _handle_emoji_info(self, source):
+        msg = (
+            f"**:information_source: Emojis Info**\n"
+            f"> **Build Time**: <t:{self.emoji.utc_build_timestamp}:f>\n"
+            f"> **Build on CF Pages**: {'Yes' if self.emoji.is_cf_pages else 'No'}\n"
+            f"> **Commit ID**: [`{self.emoji.commit_id}`](https://github.com/siiway/ghimg/commit/{self.emoji.commit_id})\n"
+            f"> **Commit Branch**: `{self.emoji.commit_branch}`\n"
+            f"> **Emoji Count**: {len(self.emoji.emojis)}\n"
+            f"> **Emoji Source**: [`emoji.json`]({self.c.emoji.base_url}/emoji.json?disable-cache)"
+        )
+        if isinstance(source, discord.Interaction):
+            await source.response.send_message(msg)
+        else:
+            await source.send(msg)
+
+    async def _handle_emoji(self, source, name: str):
+        if name not in self.emoji.emojis:
+            err_msg = ":x: **无效的表情包名称，请从列表中选择**"
+            if isinstance(source, discord.Interaction):
+                await source.response.send_message(
+                    err_msg, ephemeral=True, delete_after=10
+                )
+            else:
+                await source.send(err_msg, delete_after=10)
+            return
+
+        imgurl = f"{self.c.emoji.base_url}/{name}"
+        if isinstance(source, discord.Interaction):
+            await source.response.defer()
+        else:
+            await source.defer()
+
+        try:
+            async with aiohttp.ClientSession() as session:
+                async with session.get(imgurl, proxy=self.c.proxy) as resp:
+                    img = await resp.read()
+                    with io.BytesIO(img) as file:
+                        send_kwargs = {
+                            "content": "",
+                            "file": discord.File(
+                                fp=file,
+                                filename=name,
+                                description=f"Emoji (sticker): {name}",
+                            ),
+                        }
+                        if isinstance(source, discord.Interaction):
+                            await source.followup.send(**send_kwargs)
+                        else:
+                            await source.send(**send_kwargs)
+        except Exception as error:
+            err_msg = f"> Fetch emoji [{name}]({imgurl}) **ERROR**: `{error}`"
+            if isinstance(source, discord.Interaction):
+                await source.followup.send(err_msg, ephemeral=True)
+            else:
+                await source.send(err_msg)
 
     async def update_emoji_list(self) -> tuple[bool, str]:
-        l.info('[emoji] Updating emoji list...')
-        succ, resp, err = await u.get_json(f'{self.c.emoji.base_url}/emoji.json?disable-cache')
+        l.info("[emoji] Updating emoji list...")
+        succ, resp, err = await u.get_json(
+            f"{self.c.emoji.base_url}/emoji.json?disable-cache"
+        )
         if succ:
             try:
                 self.emoji = EmojiModel.model_validate(resp)
             except ValidationError as e:
-                l.warning(f'[emoji] Emoji list sync failed! \n{e}')
+                l.warning(f"[emoji] Emoji list sync failed! \n{e}")
                 return False, str(e)
-            l.info(f'[emoji] Emoji list Synced √ (count: {len(self.emoji.emojis)})')
-            l.debug(f'[emoji] {self.emoji.emojis}')
-            return True, ''
+            l.info(f"[emoji] Emoji list Synced √ (count: {len(self.emoji.emojis)})")
+            l.debug(f"[emoji] {self.emoji.emojis}")
+            return True, ""
         else:
-            l.warning(f'[emoji] Emoji list sync failed: {err}')
+            l.warning(f"[emoji] Emoji list sync failed: {err}")
             return False, err
