@@ -5,6 +5,7 @@ from discord import app_commands
 from discord.ext import commands
 
 from config import ConfigModel
+from modules.audit import AuditLogger
 
 
 class VoiceChannelModule:
@@ -16,10 +17,12 @@ class VoiceChannelModule:
 
     c: ConfigModel
     client: commands.Bot
+    audit: AuditLogger
 
-    def __init__(self, config: ConfigModel, client: commands.Bot):
+    def __init__(self, config: ConfigModel, client: commands.Bot, audit: AuditLogger):
         self.c = config
         self.client = client
+        self.audit = audit
 
         # Create command group
         @client.tree.command(
@@ -83,6 +86,13 @@ class VoiceChannelModule:
                     )
                 )
                 l.info(f'Bot joined voice channel: {channel.name} (ID: {channel.id})')
+                await self.audit.log(
+                    action='/joinvc',
+                    user=interaction.user,
+                    guild=interaction.guild,
+                    channel=interaction.channel,
+                    detail=f'加入语音频道 `{channel.name}` (`{channel.id}`)',
+                )
 
             except discord.errors.ConnectionClosed as exc:
                 if exc.code == 4017:
@@ -132,6 +142,13 @@ class VoiceChannelModule:
                 )
             )
             l.info(f'Bot left voice channel: {channel_name}')
+            await self.audit.log(
+                action='/leavevc',
+                user=interaction.user,
+                guild=interaction.guild,
+                channel=interaction.channel,
+                detail=f'离开语音频道 `{channel_name}`',
+            )
 
     def _check_user_allowed(self, user: discord.User | discord.Member) -> bool:
         '''

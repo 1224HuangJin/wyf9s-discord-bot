@@ -125,6 +125,30 @@ class _VoiceChannelConfigModel(BaseModel):
     '''
 
 
+class _AuditLogConfigModel(BaseModel):
+    '''
+    管理员操作执行日志配置
+    `audit`
+    '''
+
+    enabled: bool = True
+    '''是否启用执行日志'''
+
+    global_channel: int | None = None
+    '''
+    全局日志频道 ID
+    - 所有服务器的管理操作都会发送到这里
+    - 设置为 None 以禁用全局日志
+    '''
+
+    guilds: dict[int | str, int] = {}
+    '''
+    按服务器单独配置的日志频道
+    - key 为 guild id (可写数字或字符串), value 为目标频道 id
+    - 与全局日志互不影响: 若两者都配置, 则两个频道都会收到日志
+    '''
+
+
 class _PermissionListConfigModel(BaseModel):
     '''
     通用权限名单配置
@@ -166,6 +190,7 @@ class ConfigModel(BaseModel):
     '''私密消息删除延迟 (秒)'''
 
     log: _LoggingConfigModel = _LoggingConfigModel()
+    audit: _AuditLogConfigModel = _AuditLogConfigModel()
     emoji: _EmojiConfigModel = _EmojiConfigModel()
     rmtodo: _AutoRemoveTodoConfigModel = _AutoRemoveTodoConfigModel()
     rmmsg: _AutoRemoveMessageConfigModel = _AutoRemoveMessageConfigModel()

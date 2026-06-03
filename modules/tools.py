@@ -11,6 +11,7 @@ from discord import app_commands
 from discord.ext import commands
 
 from config import ConfigModel
+from modules.audit import AuditLogger
 
 
 def _parse_time_or_id(value: str | None, label: str) -> tuple[discord.Object | None, datetime | None, str | None]:
@@ -73,10 +74,12 @@ class ConfirmClearView(discord.ui.View):
 class ToolsModule:
     c: ConfigModel
     client: commands.Bot
+    audit: AuditLogger
 
-    def __init__(self, config: ConfigModel, client: commands.Bot):
+    def __init__(self, config: ConfigModel, client: commands.Bot, audit: AuditLogger):
         self.c = config
         self.client = client
+        self.audit = audit
 
         # ========== Tools ==========
 
@@ -189,6 +192,13 @@ class ToolsModule:
                 await interaction.response.send_message(
                     f':white_check_mark: **删除消息 `{message_id}` 成功!** :white_check_mark:',
                     ephemeral=not show_to_public
+                )
+                await self.audit.log(
+                    action='/delete',
+                    user=interaction.user,
+                    guild=interaction.guild,
+                    channel=interaction.channel,
+                    detail=f'删除消息 ID `{message_id}`',
                 )
 
         # ----- Clear Message - 批量清除消息 -----
@@ -562,6 +572,22 @@ class ToolsModule:
                 + (f'\n其他原因失败: **{failed_count}** 条' if failed_count > 0 else '')
             )
 
+            await self.audit.log(
+                action='/clear-message',
+                user=interaction.user,
+                guild=interaction.guild,
+                channel=interaction.channel,
+                detail=(
+                    f'范围: {scope_text}{channel_info}'
+                    f'\n匹配方式: {match_desc_result}'
+                    f'\n时间范围: {time_desc_result}'
+                    f'\n匹配 {checked_count} 条, 成功删除 {success_count} 条'
+                    + (f', 超期 {too_old_count} 条' if too_old_count > 0 else '')
+                    + (f', 失败 {failed_count} 条' if failed_count > 0 else '')
+                ),
+                success=failed_count == 0,
+            )
+
         # ========== Others ==========
 
         @client.tree.command(
@@ -643,6 +669,13 @@ class ToolsModule:
                 await interaction.response.send_message(
                     f':white_check_mark: **已成功将 {channel.mention} 移动到 {" / ".join(msg_parts)}**'
                 )
+                await self.audit.log(
+                    action='/move-channel',
+                    user=interaction.user,
+                    guild=interaction.guild,
+                    channel=interaction.channel,
+                    detail=f'将频道 `{channel.name}` 移动到 {" / ".join(msg_parts)}',
+                )
             except discord.Forbidden:
                 await interaction.response.send_message(
                     ':x: **权限不足：我需要 `管理频道 (Manage Channels)` 权限才能执行此操作，或者我的角色层级不够**',
@@ -672,6 +705,13 @@ class ToolsModule:
             await client.tree.sync()
             l.info('Command tree synced.')
             await interaction.followup.send('**:white_check_mark: 斜杠指令列表已同步**')
+            await self.audit.log(
+                action='/sync',
+                user=interaction.user,
+                guild=interaction.guild,
+                channel=interaction.channel,
+                detail='同步斜杠指令列表',
+            )
 
         # ----- Prefix Command -----
 
@@ -684,6 +724,13 @@ class ToolsModule:
             await ctx.defer()
             await client.tree.sync()
             await ctx.send('**:white_check_mark: 斜杠指令列表已同步**')
+            await self.audit.log(
+                action='sync-commands (prefix)',
+                user=ctx.author,
+                guild=ctx.guild,
+                channel=ctx.channel,
+                detail='同步斜杠指令列表',
+            )
 
     def _matches_identity(self, user: discord.User | discord.Member, values: list[int | str]) -> bool:
         for value in values:

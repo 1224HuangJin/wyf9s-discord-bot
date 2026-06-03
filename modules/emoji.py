@@ -8,6 +8,7 @@ from discord.ext import commands
 import aiohttp
 
 from config import ConfigModel
+from modules.audit import AuditLogger
 import utils as u
 
 
@@ -23,10 +24,12 @@ class EmojiModule:
     emoji: EmojiModel = EmojiModel()
     c: ConfigModel
     client: commands.Bot
+    audit: AuditLogger
 
-    def __init__(self, config: ConfigModel, client: commands.Bot):
+    def __init__(self, config: ConfigModel, client: commands.Bot, audit: AuditLogger):
         self.c = config
         self.client = client
+        self.audit = audit
 
         @client.tree.command(
             name='emoji-update',
@@ -42,6 +45,13 @@ class EmojiModule:
 > **Build Time**: <t:{self.emoji.utc_build_timestamp}:f>
 > **Commit**: [`{self.emoji.commit_id}`](https://github.com/siiway/ghimg/commit/{self.emoji.commit_id})
 > **Emojis**: `{len(self.emoji.emojis)}`'''
+                )
+                await self.audit.log(
+                    action='/emoji-update',
+                    user=interaction.user,
+                    guild=interaction.guild,
+                    channel=interaction.channel,
+                    detail=f'更新表情包库 (共 {len(self.emoji.emojis)} 个)',
                 )
             else:
                 # Error

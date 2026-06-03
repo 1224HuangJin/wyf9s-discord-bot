@@ -50,6 +50,7 @@ from discord.ext import commands
 from config import Config
 import utils as u
 
+from modules.audit import AuditLogger
 from modules.emoji import EmojiModule
 from modules.tools import ToolsModule
 from modules.manage import ManageModule
@@ -127,14 +128,17 @@ client = commands.Bot(
 
 # region modules
 
-if c.emoji.enabled:
-    emoji_module = EmojiModule(config=c, client=client)
+# audit logger (shared by all modules)
+audit = AuditLogger(config=c, client=client)
 
-tools_module = ToolsModule(config=c, client=client)
+if c.emoji.enabled:
+    emoji_module = EmojiModule(config=c, client=client, audit=audit)
+
+tools_module = ToolsModule(config=c, client=client, audit=audit)
 manage_module = ManageModule(config=c, client=client)
 
 if c.voicechannel.enabled:
-    voice_channel_module = VoiceChannelModule(config=c, client=client)
+    voice_channel_module = VoiceChannelModule(config=c, client=client, audit=audit)
 
 # endregion modules
 
