@@ -62,6 +62,49 @@ def _parse_flags(content: str) -> dict[str, str]:
     return u.parse_flags(content)
 
 
+# 标记: 用于识别 clear-message 自身发出的结果消息, 避免被自己批量清除
+CLEAR_MESSAGE_MARKER = "[clear-message]"
+
+
+class ClearMessageResultView(discord.ui.View):
+    """clear-message 结果消息的视图, 提供一个 OK 按钮用于删除该结果消息 (权限与指令相同)"""
+
+    def __init__(self, tools: "ToolsModule", guild: discord.Guild | None):
+        super().__init__(timeout=None)
+        self.tools = tools
+        self.guild = guild
+
+    @discord.ui.button(label="OK", style=discord.ButtonStyle.secondary)
+    async def btn_ok(
+        self, interaction: discord.Interaction, button: discord.ui.Button
+    ):
+        if not self.tools._can_use_clear_message(interaction.user, self.guild):
+            await interaction.response.send_message(
+                ":x: **你没有权限使用此指令** :x:", ephemeral=True
+            )
+            return
+
+        self.stop()
+        try:
+            await interaction.response.defer()
+        except discord.HTTPException:
+            pass
+
+        msg = interaction.message
+        if msg is not None:
+            try:
+                await msg.delete()
+                return
+            except discord.HTTPException:
+                pass
+
+        # fallback (ephemeral 消息): 删除原始交互响应
+        try:
+            await interaction.delete_original_response()
+        except discord.HTTPException:
+            pass
+
+
 class ConfirmClearView(discord.ui.View):
     def __init__(self):
         super().__init__(timeout=60)
@@ -310,7 +353,10 @@ class ToolsModule:
                 try:
                     message_count = int(flags["count"])
                 except ValueError:
-                    await ctx.send(":x: **count 参数必须为整数**", delete_after=10)
+                    await ctx.send(
+                        self._mark_clear_message(":x: **count 参数必须为整数**"),
+                        delete_after=10,
+                    )
                     return
 
             within_minutes = None
@@ -330,7 +376,10 @@ class ToolsModule:
                     within_minutes = int(val)
                 else:
                     await ctx.send(
-                        ":x: **within 格式无效 (例如: 30m, 2h, 1d)**", delete_after=10
+                        self._mark_clear_message(
+                            ":x: **within 格式无效 (例如: 30m, 2h, 1d)**"
+                        ),
+                        delete_after=10,
                     )
                     return
 
@@ -550,7 +599,12 @@ class ToolsModule:
             end=end,
         )
 
-        await u.send_msg(interaction, result, ephemeral=True)
+        view = (
+            ClearMessageResultView(self, interaction.guild)
+            if CLEAR_MESSAGE_MARKER in result
+            else None
+        )
+        await u.send_msg(interaction, result, ephemeral=True, view=view)
 
     async def _handle_clear_message_prefix(
         self,
@@ -568,7 +622,10 @@ class ToolsModule:
         end: str | None = None,
     ):
         if not self._can_use_clear_message(ctx.author, ctx.guild):
-            await ctx.send(":x: **你没有权限使用此指令** :x:", delete_after=10)
+            await ctx.send(
+                self._mark_clear_message(":x: **你没有权限使用此指令** :x:"),
+                delete_after=10,
+            )
             return
 
         await ctx.defer()
@@ -590,7 +647,10 @@ class ToolsModule:
             end=end,
         )
 
-        await u.send_msg(ctx, result)
+        # 成功结果已带标记 (附带 OK 按钮), 错误结果仅补标记以防被自己清除
+        is_success = CLEAR_MESSAGE_MARKER in result
+        view = ClearMessageResultView(self, ctx.guild) if is_success else None
+        await u.send_msg(ctx, self._mark_clear_message(result), view=view)
 
     async def _do_clear_message(
         self,
@@ -739,6 +799,14 @@ class ToolsModule:
         checked_count = 0
 
         def message_matches(msg: discord.Message) -> bool:
+            # 跳过 clear-message 自身发出的结果消息, 避免误删自己
+            bot_user = self.client.user
+            if (
+                bot_user is not None
+                and msg.author.id == bot_user.id
+                and CLEAR_MESSAGE_MARKER in msg.content
+            ):
+                return False
             if cutoff_time is not None and msg.created_at < cutoff_time:
                 return False
             if start_time_bound is not None and msg.created_at < start_time_bound:
@@ -922,6 +990,7 @@ class ToolsModule:
                 else ""
             )
             + (f"\n其他原因失败: **{failed_count}** 条" if failed_count > 0 else "")
+            + f"\n-# {CLEAR_MESSAGE_MARKER}"
         )
 
         if self.audit:
@@ -1092,6 +1161,13 @@ class ToolsModule:
         self, user: discord.User | discord.Member, guild: discord.Guild | None = None
     ) -> bool:
         return self._is_mod(user, guild)
+
+    @staticmethod
+    def _mark_clear_message(text: str) -> str:
+        """为 clear-message 的非 ephemeral 消息追加标记, 避免被自己批量清除"""
+        if CLEAR_MESSAGE_MARKER in text:
+            return text
+        return f"{text}\n-# {CLEAR_MESSAGE_MARKER}"
 
     def _can_use_delete(self, user: discord.User | discord.Member) -> bool:
         return self._is_mod(user)
