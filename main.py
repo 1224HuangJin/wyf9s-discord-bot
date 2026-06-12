@@ -55,6 +55,7 @@ from modules.audit import AuditLogger  # noqa: E402
 from modules.emoji import EmojiModule  # noqa: E402
 from modules.tools import ToolsModule  # noqa: E402
 from modules.lock import LockModule  # noqa: E402
+from modules.antispam import AntiSpamModule  # noqa: E402
 from modules.manage import ManageModule  # noqa: E402
 from modules.voice import VoiceChannelModule  # noqa: E402
 
@@ -134,6 +135,8 @@ if c.audit.enabled:
 else:
     audit = None
 
+tools_module: ToolsModule | None = None
+
 if c.emoji.enabled:
     emoji_module = EmojiModule(config=c, client=client, audit=audit)
     if c.emoji.slash:
@@ -164,6 +167,14 @@ if c.voicechannel.enabled:
     if c.voicechannel.slash:
         has_slash_commands = True
     l.info("Voice channel module enabled.")
+
+if c.antispam.enabled:
+    antispam_module = AntiSpamModule(
+        config=c,
+        client=client,
+        audit=audit,
+    )
+    l.info("Antispam module enabled.")
 
 # endregion modules
 

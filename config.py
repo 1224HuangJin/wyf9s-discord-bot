@@ -1,7 +1,7 @@
 import typing as t
 
 from loguru import logger as l
-from pydantic import BaseModel, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 from yaml import safe_load
 
 import utils as u
@@ -222,6 +222,60 @@ class _LockConfigModel(BaseModel):
     """是否注册前缀指令"""
 
 
+class _SpamCatcherRuleConfigModel(BaseModel):
+    """spam-catcher 单频道规则"""
+
+    model_config = ConfigDict(populate_by_name=True)
+
+    spammer: t.Literal["kick", "ban"] = "ban"
+    """陌生账号处理方式"""
+
+    hacked: t.Literal["kick", "ban", "mute"] | int = "mute"
+    """正常账号疑似被盗处理方式: kick/ban/mute/分钟数"""
+
+    clear_message: int | None = Field(default=3, alias="clear-message")
+    """清理消息窗口 (分钟), null/false 表示禁用"""
+
+    public_log: bool = Field(default=True, alias="public-log")
+    """是否在频道公开通知处理结果"""
+
+    stranger_roles: list[int | str] = Field(
+        default_factory=list, alias="stranger-roles"
+    )
+    """被视为陌生账号的角色列表"""
+
+    @field_validator("clear_message", mode="before")
+    def normalize_clear_message(cls, v):
+        if v in (None, False):
+            return None
+        if isinstance(v, bool):
+            raise ValueError("clear-message must be int or null/false")
+        return v
+
+    @field_validator("hacked", mode="before")
+    def normalize_hacked(cls, v):
+        if isinstance(v, bool):
+            raise ValueError("hacked must be kick/ban/mute or minutes")
+        return v
+
+
+class _AntiSpamConfigModel(BaseModel):
+    """
+    反垃圾消息模块配置
+    无指令 (基于事件)
+    """
+
+    model_config = ConfigDict(populate_by_name=True)
+
+    enabled: bool = False
+    """是否启用反垃圾消息模块"""
+
+    spam_catcher: dict[int | str, _SpamCatcherRuleConfigModel] = Field(
+        default_factory=dict, alias="spam-catcher"
+    )
+    """按频道配置的捕获规则"""
+
+
 class ConfigModel(BaseModel):
     """
     基础配置
@@ -244,6 +298,7 @@ class ConfigModel(BaseModel):
     emoji: _EmojiConfigModel = _EmojiConfigModel()
     tools: _ToolsConfigModel = _ToolsConfigModel()
     lock: _LockConfigModel = _LockConfigModel()
+    antispam: _AntiSpamConfigModel = _AntiSpamConfigModel()
     rmtodo: _AutoRemoveTodoConfigModel = _AutoRemoveTodoConfigModel()
     rmmsg: _AutoRemoveMessageConfigModel = _AutoRemoveMessageConfigModel()
     voicechannel: _VoiceChannelConfigModel = _VoiceChannelConfigModel()
