@@ -1,6 +1,7 @@
 # c!ding: utf-8
 from uuid import uuid4 as uuid
 from datetime import datetime
+import io
 import random
 import re
 
@@ -241,6 +242,13 @@ class ToolsModule:
                     detail="同步斜杠指令列表",
                 )
 
+        # ----- 2File - 文本转文件 -----
+
+        @client.tree.command(name="2file", description="将文本内容以文件形式发送")
+        @app_commands.describe(name="文件名", content="文件内容")
+        async def twofile(interaction: discord.Interaction, name: str, content: str):
+            await self._handle_2file(interaction, name, content)
+
     def _register_prefix_commands(self, client: commands.Bot):
         # ----- Random - 随机数 -----
 
@@ -422,6 +430,12 @@ class ToolsModule:
                     detail="同步斜杠指令列表",
                 )
 
+        # ----- 2File - 文本转文件 -----
+
+        @client.command(name="2file")
+        async def prefix_2file(ctx: commands.Context, name: str, *, content: str):
+            await self._handle_2file(ctx, name, content)
+
     # ========== Shared Logic ==========
 
     async def _handle_random(self, source, min_num: int = 1, max_num: int = 114514):
@@ -446,6 +460,24 @@ class ToolsModule:
             ephemeral=True,
             delete_after=delete_after,
         )
+
+    async def _handle_2file(self, source, name: str, content: str):
+        bio = io.BytesIO(content.encode("utf-8"))
+        await u.send_msg(
+            source,
+            "",
+            file=discord.File(fp=bio, filename=name),
+        )
+
+        user = source.user if isinstance(source, discord.Interaction) else source.author
+        if self.audit:
+            await self.audit.log(
+                action="/2file",
+                user=user,
+                guild=source.guild,
+                channel=source.channel,
+                detail=f"发送文件: `{name}`",
+            )
 
     async def _handle_delete(
         self, source, message_id: str, show_to_public: bool = False
