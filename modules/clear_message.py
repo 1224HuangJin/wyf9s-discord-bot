@@ -195,6 +195,30 @@ class ClearMessageService:
             if start_dt and end_dt and start_dt > end_dt:
                 return ":x: **start 时间不能晚于 end 时间** :x:"
 
+        # 如果 start 和 end 都是消息 ID，验证顺序并获取消息
+        start_msg: discord.Message | None = None
+        end_msg: discord.Message | None = None
+        if start_obj and end_obj:
+            # 需要确定频道来获取消息
+            # 当 scope 为 "channel" 时，使用 target_channels[0]
+            # 当 scope 为 "server" 时，我们无法确定频道，因此跳过验证
+            if scope == "channel" and target_channels:
+                channel_for_fetch = target_channels[0]
+                try:
+                    start_msg = await channel_for_fetch.fetch_message(start_obj.id)
+                except discord.NotFound:
+                    return f":x: **找不到 ID 为 `{start_obj.id}` 的 start 消息** :x:"
+                except discord.HTTPException as e:
+                    return f":x: **获取 start 消息时出错: {e}** :x:"
+                try:
+                    end_msg = await channel_for_fetch.fetch_message(end_obj.id)
+                except discord.NotFound:
+                    return f":x: **找不到 ID 为 `{end_obj.id}` 的 end 消息** :x:"
+                except discord.HTTPException as e:
+                    return f":x: **获取 end 消息时出错: {e}** :x:"
+                if start_msg.created_at > end_msg.created_at:
+                    return ":x: **start 消息不能晚于 end 消息** :x:"
+
         cutoff_time = None
         start_time_bound: datetime | None = None
         end_time_bound: datetime | None = None
@@ -276,6 +300,17 @@ class ClearMessageService:
                 l.warning(
                     f"获取频道 {target_channel.name} ({target_channel.id}) 消息时出错: {e}"
                 )
+
+        # 将 start_msg 和 end_msg 添加到结果中（如果它们符合过滤条件且尚未包含）
+        if start_msg and end_msg and scope == "channel" and target_channels:
+            channel_id = target_channels[0].id
+            existing_messages = checked_messages_by_channel.get(channel_id, [])
+            if start_msg not in existing_messages and message_matches(start_msg):
+                checked_messages_by_channel.setdefault(channel_id, []).append(start_msg)
+                checked_count += 1
+            if end_msg not in existing_messages and message_matches(end_msg):
+                checked_messages_by_channel.setdefault(channel_id, []).append(end_msg)
+                checked_count += 1
 
         if checked_count == 0:
             match_descs: list[str] = []
