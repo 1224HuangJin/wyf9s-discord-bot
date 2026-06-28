@@ -82,6 +82,7 @@ class ClearMessageService:
         channel_target: discord.abc.GuildChannel | None = None,
         start: str | None = None,
         end: str | None = None,
+        write_audit: bool = True,
     ) -> str:
         message_limit = message_count if message_count is not None else 0
         minutes_limit = within_minutes if within_minutes is not None else 0
@@ -437,7 +438,7 @@ class ClearMessageService:
             + f"\n-# {CLEAR_MESSAGE_MARKER}"
         )
 
-        if self.audit:
+        if self.audit and write_audit:
             await self.audit.log(
                 action="clear-message",
                 user=author,

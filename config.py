@@ -143,11 +143,38 @@ class _VoiceChannelConfigModel(BaseModel):
     """
 
 
+AuditLang = t.Literal["zh", "en"]
+"""审计日志语言: zh (默认) / en"""
+
+
+class _AuditGuildConfigModel(BaseModel):
+    """
+    按服务器的审计日志配置
+    """
+
+    model_config = ConfigDict(populate_by_name=True)
+
+    channel: int
+    """日志目标频道 ID"""
+
+    lang: AuditLang = "zh"
+    """日志语言: zh (默认) / en"""
+
+    @field_validator("channel", mode="before")
+    def normalize_channel(cls, v):
+        # 兼容直接写频道 ID (str/int) 的情况
+        if isinstance(v, str) and v.isdigit():
+            return int(v)
+        return v
+
+
 class _AuditLogConfigModel(BaseModel):
     """
     管理员操作执行日志配置
     `audit` (无指令, 服务模块)
     """
+
+    model_config = ConfigDict(populate_by_name=True)
 
     enabled: bool = False
     """是否启用执行日志"""
@@ -159,12 +186,31 @@ class _AuditLogConfigModel(BaseModel):
     - 设置为 None 以禁用全局日志
     """
 
-    guilds: dict[int | str, int] = {}
+    global_lang: AuditLang = "zh"
+    """全局日志语言: zh (默认) / en"""
+
+    guilds: dict[int | str, _AuditGuildConfigModel] = {}
     """
     按服务器单独配置的日志频道
-    - key 为 guild id (可写数字或字符串), value 为目标频道 id
+    - key 为 guild id (可写数字或字符串)
+    - value 可写:
+      - 频道 ID (数字), 语言默认 zh
+      - 或 { channel: 频道ID, lang: zh/en }
     - 与全局日志互不影响: 若两者都配置, 则两个频道都会收到日志
     """
+
+    @field_validator("guilds", mode="before")
+    def normalize_guilds(cls, v):
+        if not isinstance(v, dict):
+            return v
+        result: dict = {}
+        for key, value in v.items():
+            # 兼容旧格式: 直接写频道 ID
+            if isinstance(value, (int, str)):
+                result[key] = {"channel": value}
+            else:
+                result[key] = value
+        return result
 
 
 class _PermissionListConfigModel(BaseModel):
@@ -243,6 +289,11 @@ class _SpamCatcherRuleConfigModel(BaseModel):
         default_factory=list, alias="stranger-roles"
     )
     """被视为陌生账号的角色列表 (支持身份组 ID 或名称)"""
+
+    ignored_roles: list[int | str] = Field(
+        default_factory=list, alias="ignored-roles"
+    )
+    """忽略处理的角色列表, 拥有任一角色的成员不会被处理 (支持身份组 ID 或名称)"""
 
     @field_validator("clear_message", mode="before")
     def normalize_clear_message(cls, v):
