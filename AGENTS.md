@@ -1,18 +1,5 @@
 # AGENTS.md
 
-## Project Overview
-
-Discord bot built with discord.py, using YAML config with Pydantic validation.
-
-## Tech Stack
-
-- **Python 3.13** (managed by **uv**)
-- **discord.py** - Discord API
-- **Pydantic v2** - Config validation
-- **PyYAML** - Config file parsing
-- **Loguru** - Logging
-- **aiohttp** - Async HTTP requests
-
 ## Code Quality
 
 After making changes, always run:
@@ -30,18 +17,21 @@ Fix any remaining errors before committing.
 ## Project Structure
 
 ```
-config.yaml        # Runtime config (gitignored)
-schedules.yaml     # Scheduled lock data (auto-generated)
-config.py          # Pydantic config models + loader
-main.py            # Bot entry point, module loading
-utils.py           # Shared utilities
+config.py            # Pydantic config models + loader
+config.yaml          # Runtime config (gitignored)
+config.example.yaml  # Example config with docs
+schedules.yaml       # Scheduled lock data (auto-generated)
+main.py              # Bot entry point, module loading
+utils.py             # Shared utilities
 modules/
-  audit.py         # Audit logging service (shared)
-  emoji.py         # Emoji/sticker commands
-  tools.py         # Utility/moderation commands
-  lock.py          # Channel lock/unlock + scheduled locks
-  manage.py        # Auto-delete event handlers
-  voice.py         # Voice channel commands
+  audit.py           # Audit logging service (shared)
+  emoji.py           # Emoji/sticker commands
+  tools.py           # Utility/moderation commands
+  lock.py            # Channel lock/unlock + scheduled locks
+  manage.py          # Auto-delete event handlers
+  voice.py           # Voice channel commands
+  antispam.py        # Anti-spam message handler
+  clear_message.py   # Bulk message clearing service (shared)
 ```
 
 ## Config System
@@ -81,20 +71,17 @@ class MyModule:
             await source.send(msg)
 ```
 
-## Permissions
-
-Three-tier custom system (not Discord built-in):
-1. **Server admins** - Discord `administrator` permission
-2. **Config admins** - `config.yaml > admins.users`
-3. **Mods** - `mods.users` (global) or `mods.guilds[guild_id]`
-
-## Deployment
-
-- pm2 on serv00 server
-- `update.sh` for deployment
-
 ## Type Checking Notes
 
 - discord.py type stubs are strict about channel types
 - Use `type: ignore[arg-type]` for `ctx.channel` / `interaction.channel` where guild context is assumed
 - `AuditLogger.log()` accepts `discord.Thread` in channel parameter
+
+## Documentation
+
+- After modifying a module or adding new configuration fields, update `config.example.yaml` and sync `README.md` if needed.
+- `config.example.yaml` — example config with inline docs (the source of truth for config fields)
+- `README.md` — user-facing feature overview
+- `AGENTS.md` — developer/agent instructions only (keep non-overlapping with README)
+
+@README.md
