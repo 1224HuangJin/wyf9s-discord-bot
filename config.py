@@ -242,7 +242,7 @@ class _SpamCatcherRuleConfigModel(BaseModel):
     stranger_roles: list[int | str] = Field(
         default_factory=list, alias="stranger-roles"
     )
-    """被视为陌生账号的角色列表"""
+    """被视为陌生账号的角色列表 (支持身份组 ID 或名称)"""
 
     @field_validator("clear_message", mode="before")
     def normalize_clear_message(cls, v):

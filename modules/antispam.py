@@ -37,13 +37,23 @@ class AntiSpamModule:
         )
 
     @staticmethod
-    def _parse_role_ids(values: list[int | str]) -> set[int]:
+    def _parse_role_ids(
+        values: list[int | str], guild: discord.Guild | None = None
+    ) -> set[int]:
         role_ids: set[int] = set()
+        name_to_ids: dict[str, set[int]] | None = None
         for value in values:
             if isinstance(value, int):
                 role_ids.add(value)
             elif isinstance(value, str) and value.isdigit():
                 role_ids.add(int(value))
+            elif isinstance(value, str) and guild is not None:
+                # 按身份组名称解析 (可能存在同名身份组)
+                if name_to_ids is None:
+                    name_to_ids = {}
+                    for role in guild.roles:
+                        name_to_ids.setdefault(role.name, set()).add(role.id)
+                role_ids.update(name_to_ids.get(value, set()))
         return role_ids
 
     def _is_spammer(
@@ -52,7 +62,7 @@ class AntiSpamModule:
         role_ids = {role.id for role in member.roles if not role.is_default()}
         if not role_ids:
             return True
-        stranger_role_ids = self._parse_role_ids(rule.stranger_roles)
+        stranger_role_ids = self._parse_role_ids(rule.stranger_roles, member.guild)
         return bool(stranger_role_ids) and role_ids.issubset(stranger_role_ids)
 
     async def _cleanup_messages(
