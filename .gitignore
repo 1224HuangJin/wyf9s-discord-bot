@@ -1,5 +1,7 @@
 # Config file
 config.yaml
+config.*.yaml
+!config.example.yaml
 
 # ========== Generated ==========
 
@@ -174,4 +176,3 @@ cython_debug/
 
 # PyPI configuration file
 .pypirc
-*.yaml
