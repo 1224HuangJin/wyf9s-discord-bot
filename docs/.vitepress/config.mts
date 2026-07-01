@@ -27,12 +27,19 @@ export default defineConfig({
       { text: '模块 & 指令', link: '/modules/' },
       { text: '配置', link: '/guide/configuration' },
       {
+        text: '法律',
+        items: [
+          { text: '服务条款', link: '/legal/tos' },
+          { text: '隐私政策', link: '/legal/privacy' },
+        ],
+      },
+      {
         text: '相关链接',
         items: [
-          { text: 'Bot Invite', link: 'https://discord.com/oauth2/authorize?client_id=1268221966544932945' },
+          { text: '添加 Bot', link: 'https://discord.com/oauth2/authorize?client_id=1268221966544932945' },
           { text: 'GitHub 仓库', link: 'https://github.com/wyf9/wyf9s-discord-bot' },
           { text: 'discord.py 文档', link: 'https://discordpy.readthedocs.io/' },
-          { text: 'Contact', link: 'https://wyf9.top/c' },
+          { text: '联系开发者', link: 'https://wyf9.top/c' },
         ],
       },
     ],
@@ -72,6 +79,15 @@ export default defineConfig({
             { text: '自动管理 (manage)', link: '/modules/manage' },
             { text: '反垃圾 (antispam)', link: '/modules/antispam' },
             { text: '审计日志 (audit)', link: '/modules/audit' },
+          ],
+        },
+      ],
+      '/legal/': [
+        {
+          text: '法律',
+          items: [
+            { text: '服务条款', link: '/legal/tos' },
+            { text: '隐私政策', link: '/legal/privacy' },
           ],
         },
       ],
@@ -119,7 +135,16 @@ export default defineConfig({
               selectText: '选择',
               navigateText: '切换',
               closeText: '关闭',
-            },
+      '/legal/': [
+        {
+          text: '法律',
+          items: [
+            { text: '服务条款', link: '/legal/tos' },
+            { text: '隐私政策', link: '/legal/privacy' },
+          ],
+        },
+      ],
+    },
           },
         },
       },

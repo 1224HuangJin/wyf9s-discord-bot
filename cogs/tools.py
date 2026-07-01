@@ -501,6 +501,20 @@ class ToolsCog(commands.Cog):
                 delete_after=10,
             )
             return
+
+        # Safety: non-admin mods must have manage_channels on the target channel
+        if not u.is_admin(user, self.c) and not u.is_server_admin(user):
+            if isinstance(user, discord.Member):
+                perms = channel.permissions_for(user)
+                if not perms.manage_channels:
+                    await u.send_msg(
+                        source,
+                        ":x: **You do not have Manage Channels permission on this channel**",
+                        ephemeral=True,
+                        delete_after=10,
+                    )
+                    return
+
         kwargs = {}
         update_category = False
         target_category = None
