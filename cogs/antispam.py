@@ -153,7 +153,7 @@ class AntiSpamCog(commands.Cog):
             return
         await self.audit.log(
             action="antispam-auto-catch",
-            user=actor,
+            user=target,
             guild=guild,
             channel=channel,
             detail=(
@@ -234,18 +234,21 @@ class AntiSpamCog(commands.Cog):
         )
 
         if self.audit:
+            detail_lines = [
+                f"Target: {target} ({target.id})",
+                f"Category: {category}",
+                f"Action: {action_label}",
+                f"Cleanup mins: {rule.clear_message}",
+            ]
+            if clear_result:
+                quoted = "> " + clear_result[:900].replace("\n", "\n> ")
+                detail_lines.append(f"Cleanup:\n{quoted}")
             await self.audit.log(
                 action="antispam-auto-catch",
-                user=actor,
+                user=target,
                 guild=guild,
                 channel=trigger_channel,
-                detail=(
-                    f"Target: {target} ({target.id})"
-                    f"\nCategory: {category}"
-                    f"\nAction: {action_label}"
-                    f"\nCleanup mins: {rule.clear_message}"
-                    + (f"\nCleanup: {clear_result[:900]}" if clear_result else "")
-                ),
+                detail="\n".join(detail_lines),
                 success=True,
                 auto=True,
             )

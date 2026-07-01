@@ -2,30 +2,23 @@ import time
 from datetime import datetime, timezone
 
 from loguru import logger as l
-import aiohttp
 import discord
 from discord import app_commands
 from discord.ext import commands
 
 from modules.audit import AuditLogger
 import utils as u
-from cogs.subscribe_store import SubscribeStore
 
 
 _ANNOUNCE_COOLDOWN = 60
 
 
 class ConfirmAnnounceView(discord.ui.View):
-    def __init__(
-        self,
-        announce: "AnnounceCog",
-        content: str,
-    ):
+    def __init__(self, announce: "AnnounceCog", content: str):
         super().__init__(timeout=300)
         self.announce = announce
         self.content = content
         self.confirmed: bool | None = None
-        self.confirmed_by: discord.User | discord.Member | None = None
 
     @discord.ui.button(label="Confirm", style=discord.ButtonStyle.green)
     async def btn_confirm(
@@ -37,11 +30,10 @@ class ConfirmAnnounceView(discord.ui.View):
             )
             return
         self.confirmed = True
-        self.confirmed_by = interaction.user
         self.stop()
         await interaction.response.defer()
         await interaction.edit_original_response(
-            content=":loudspeaker: **Sending announcement...**", view=None
+            content=":loudspeaker: **Publishing announcement...**", view=None
         )
 
     @discord.ui.button(label="Cancel", style=discord.ButtonStyle.secondary)
@@ -69,27 +61,25 @@ class AnnounceCog(commands.Cog):
         self.bot = bot
         self.c = bot.config  # ty:ignore[unresolved-attribute]
         self.audit: AuditLogger | None = getattr(bot, "audit", None)
-        self.store = getattr(bot, "subscribe_store", SubscribeStore())
-        bot.subscribe_store = self.store  # ty:ignore[unresolved-attribute]
         self._last_announce = 0.0
 
     # ========== /subscribe ==========
 
     @app_commands.command(
         name="subscribe",
-        description="Subscribe or unsubscribe for announcements (toggle)",
+        description="Follow this server's announcement channel for updates",
     )
     @app_commands.describe(
-        channel="Channel to receive announcements (default: current)"
+        target="Channel in this server to receive announcements (default: current)"
     )
     @u.requires(u.Permission.MOD)
     async def subscribe(
         self,
         interaction: discord.Interaction,
-        channel: discord.TextChannel | None = None,
+        target: discord.TextChannel | None = None,
     ):
-        target = channel or interaction.channel
-        if not isinstance(target, discord.TextChannel):
+        destination = target or interaction.channel
+        if not isinstance(destination, discord.TextChannel):
             await interaction.response.send_message(
                 ":x: **Must be a text channel**", ephemeral=True
             )
@@ -101,74 +91,59 @@ class AnnounceCog(commands.Cog):
             )
             return
 
-        guild = interaction.guild
-
-        # Check for existing subscription → toggle off
-        existing = self.store.get(guild.id)
-        if existing:
-            # Try to delete the old webhook
-            if existing.webhook_id:
-                try:
-                    wh = await self.bot.fetch_webhook(existing.webhook_id)
-                    await wh.delete()
-                except (discord.NotFound, discord.Forbidden, discord.HTTPException):
-                    pass
-            self.store.remove(guild.id)
+        source = interaction.channel
+        if not isinstance(source, discord.TextChannel):
             await interaction.response.send_message(
-                ":white_check_mark: **Unsubscribed.** Announcements will no longer be sent here."
+                ":x: **Source channel must be a text channel**", ephemeral=True
             )
-            if self.audit:
-                await self.audit.log(
-                    action="subscribe",
-                    user=interaction.user,
-                    guild=guild,
-                    channel=interaction.channel,
-                    detail=f"Unsubscribed (was <#{existing.channel_id}>)",
-                )
             return
 
-        # Create webhook in target channel
+        # The source must be an announcement/news channel
+        if not source.is_news():
+            await interaction.response.send_message(
+                ":x: **This channel is not an announcement channel. "
+                "Use /subscribe in a news/announcement channel.**",
+                ephemeral=True,
+            )
+            return
+
         try:
-            wh = await target.create_webhook(name="wyf9-announce")
+            await destination.follow(
+                destination=source,
+                reason=f"Subscribed by {interaction.user} via wyf9-bot",
+            )
         except discord.Forbidden:
             await interaction.response.send_message(
-                ":x: **Bot needs Manage Webhooks permission in this channel**",
+                ":x: **Bot needs Manage Webhooks permission in the target channel**",
                 ephemeral=True,
             )
             return
         except discord.HTTPException as e:
             await interaction.response.send_message(
-                f":x: **Failed to create webhook:** `{e}`", ephemeral=True
+                f":x: **Failed to follow:** `{e}`", ephemeral=True
             )
             return
 
-        self.store.add(
-            guild_id=guild.id,
-            channel_id=target.id,
-            webhook_url=wh.url,
-            webhook_id=wh.id,
-            user_id=interaction.user.id,
-        )
-
         await interaction.response.send_message(
-            f":white_check_mark: **Subscribed** {target.mention} for announcements.\n"
-            f"> Run `/subscribe` again in this server to cancel."
+            f":white_check_mark: **{destination.mention} now follows this announcement channel.**\n"
+            f"> Messages published here will appear in {destination.mention}.\n"
+            f"> To unsubscribe, delete the webhook in channel settings."
         )
 
         if self.audit:
             await self.audit.log(
                 action="subscribe",
                 user=interaction.user,
-                guild=guild,
+                guild=interaction.guild,
                 channel=interaction.channel,
-                detail=f"Subscribed {target.name} ({target.id}) via webhook",
+                detail=f"Followed {destination.name} ({destination.id}) from announcement channel",
             )
 
     # ========== /announce ==========
 
     @app_commands.command(
         name="announce",
-        description="Send an announcement to all subscribers (admin only)",
+        description="Publish an announcement to all following channels (admin only)",
     )
     @app_commands.describe(
         message="Announcement text",
@@ -199,6 +174,15 @@ class AnnounceCog(commands.Cog):
     ):
         is_interaction = isinstance(source, discord.Interaction)
         channel = source.channel
+
+        if not isinstance(channel, discord.TextChannel):
+            await u.send_msg(
+                source,
+                ":x: **Must be used in a text channel**",
+                ephemeral=True,
+                delete_after=10,
+            )
+            return
 
         # Rate limit
         now = time.monotonic()
@@ -289,47 +273,34 @@ class AnnounceCog(commands.Cog):
         if not view.confirmed:
             return
 
-        # Send via webhooks (avoids bot message rate limit)
+        # Publish to this channel (Discord auto-forwards to all followers)
         user = source.user if is_interaction else source.author
         timestamp = int(datetime.now(timezone.utc).timestamp())
-
-        subs = self.store.get_all()
-        sent = 0
-        failed = 0
-
         announce_content = f"{content}\n\n-# Sent by {user} · <t:{timestamp}:f>"
 
-        async with aiohttp.ClientSession() as session:
-            for sub in subs:
-                try:
-                    payload = {"content": announce_content}
-                    if len(announce_content) > 2000:
-                        payload = {
-                            "content": announce_content[:1990] + "\n\n-# (truncated)",
-                        }
-                    async with session.post(sub.webhook_url, json=payload) as resp:
-                        if resp.status in (200, 204):
-                            sent += 1
-                        else:
-                            l.warning(
-                                f"[announce] Webhook {sub.webhook_url[:40]}... "
-                                f"returned {resp.status}"
-                            )
-                            failed += 1
-                except Exception as e:
-                    l.warning(f"[announce] Failed to send to {sub.guild_id}: {e}")
-                    failed += 1
+        try:
+            msg = await channel.send(announce_content)
+            if channel.is_news():
+                await msg.publish()
+        except discord.HTTPException as e:
+            await u.send_msg(
+                source,
+                f":x: **Failed to publish:** `{e}`",
+                ephemeral=True,
+                delete_after=10,
+            )
+            return
 
         self._last_announce = time.monotonic()
 
-        result_msg = (
-            f":loudspeaker: **Announcement sent**\n"
-            f"> Sent: `{sent}` · Failed: `{failed}`"
-        )
         if is_interaction:
-            await source.followup.send(result_msg)
+            await source.followup.send(
+                ":loudspeaker: **Announcement published.** Discord will forward to following channels."
+            )
         else:
-            await source.send(result_msg)
+            await source.send(
+                ":loudspeaker: **Announcement published.** Discord will forward to following channels."
+            )
 
         if self.audit:
             await self.audit.log(
@@ -337,7 +308,7 @@ class AnnounceCog(commands.Cog):
                 user=user,
                 guild=source.guild,
                 channel=source.channel,
-                detail=f"Announced to {sent} channels via webhooks ({failed} failed)",
+                detail=f"Published announcement: {content[:500]}",
             )
 
 
