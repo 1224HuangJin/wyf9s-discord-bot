@@ -51,8 +51,8 @@
 | `/lock unlock [channel]` | Mod | 解锁频道 |
 | `/lock plan ...` | Mod | 计划锁定 |
 | `/lock unplan <index>` | Mod | 取消计划 |
-| `/joinvc [channel]` | Mod/白名单 | 加入语音 |
-| `/leavevc` | Mod/白名单 | 离开语音 |
+| `/vc join [channel]` | Mod/白名单 | 加入语音 |
+| `/vc leave` | Mod/白名单 | 离开语音 |
 | `/sync` | Config Admin | 同步斜杠指令 |
 | `/reload [module]` | Admin | 热重载模块 |
 | `/perm add <user> [module\|command]` | Admin | 添加权限规则 |

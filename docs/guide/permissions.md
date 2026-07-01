@@ -77,7 +77,7 @@ async def _handle_lock(self, source, channel=None):
 | `emoji` / `emoji-info` | 所有人 |
 | `delete` / `clear-message` / `move-channel` | Mod |
 | `lock` / `unlock` / `plan-lock` / `unplan-lock` | Mod |
-| `joinvc` / `leavevc` | 白名单用户或 Mod（见[语音模块](/modules/voice)） |
+| `vc join` / `vc leave` | 白名单用户或 Mod（见[语音模块](/modules/voice)） |
 | `emoji-update` | Admin |
 | `sync` / `sync-commands` | 配置管理员（`admins.users`） |
 

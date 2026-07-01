@@ -13,7 +13,7 @@
 | 工具 / 管理 | `tools` | 指令 | `random` `uuid` `2file` `delete` `clear-message` `move-channel` `sync` | [查看](/modules/tools) |
 | 表情 | `emoji` | 指令 | `emoji` `emoji-info` `emoji-update` | [查看](/modules/emoji) |
 | 频道锁定 | `lock` | 指令 | `lock` `unlock` `plan-lock` `unplan-lock` | [查看](/modules/lock) |
-| 语音频道 | `voicechannel` | 指令 | `joinvc` `leavevc` | [查看](/modules/voice) |
+| 语音频道 | `voicechannel` | 指令 | `vc join` `vc leave` | [查看](/modules/voice) |
 | 自动管理 | `rmmsg` / `rmtodo` | 事件 | 无 | [查看](/modules/manage) |
 | 反垃圾 | `antispam` | 事件 | 无 | [查看](/modules/antispam) |
 | 审计日志 | `audit` | 服务 | 无 | [查看](/modules/audit) |
@@ -36,9 +36,9 @@
 | `/unlock` | lock | Mod | — | 解锁频道 |
 | `/plan-lock` | lock | Mod | — | 计划锁定 / 解锁 |
 | `/unplan-lock` | lock | Mod | — | 取消计划 |
-| `/joinvc` | voice | 白名单 / Mod | — | 机器人加入语音频道 |
-| `/leavevc` | voice | 白名单 / Mod | — | 机器人离开语音频道 |
+| `/vc join` | voice | 白名单 / Mod | — | 机器人加入语音频道 |
 
+| `/vc leave` | voice | 白名单 / Mod | — | 机器人离开语音频道 |
 > 权限体系详见[权限系统](/guide/permissions)，限速详见[限速与 Rate Limit](/guide/rate-limit)。
 
 ## 双命令模式

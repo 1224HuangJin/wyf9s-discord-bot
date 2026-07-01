@@ -45,7 +45,7 @@ sh update.sh
 | 管理消息（Manage Messages） | `delete` / `clear-message` / 自动删除 |
 | 管理频道（Manage Channels） | `move-channel` |
 | 管理身份组 / 管理频道 | `lock` / `unlock` / `plan-lock`（修改频道权限覆盖） |
-| 连接 / 使用语音（Connect / Speak） | `joinvc` / `leavevc` |
+| 连接 / 使用语音（Connect / Speak） | `vc join` / `vc leave` |
 | 踢出成员（Kick Members） | 反垃圾 `kick` |
 | 封禁成员（Ban Members） | 反垃圾 `ban` |
 | 超时成员（Moderate Members / Timeout） | 反垃圾 `mute` |

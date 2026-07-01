@@ -124,7 +124,7 @@ class _AutoRemoveMessageConfigModel(BaseModel):
 class _VoiceChannelConfigModel(BaseModel):
     """
     语音频道控制模块配置
-    指令: joinvc, leavevc
+    指令: vc join, vc leave
     """
 
     enabled: bool = False

@@ -24,33 +24,43 @@ class VoiceCog(commands.Cog):
         self.c = bot.config  # ty:ignore[unresolved-attribute]
         self.audit: AuditLogger | None = getattr(bot, "audit", None)
 
-    @app_commands.command(
-        name="joinvc", description="Join a voice channel (yours or specified)"
+    # ========== Slash Group: /vc ==========
+
+    vc_group = app_commands.Group(name="vc", description="Voice channel control")
+
+    @vc_group.command(
+        name="join", description="Join a voice channel (yours or specified)"
     )
     @app_commands.describe(channel="Voice channel to join (default: your current)")
     @u.requires(_voice_permission, perm_module="voice")
-    async def slash_joinvc(
+    async def vc_join(
         self,
         interaction: discord.Interaction,
         channel: discord.VoiceChannel | None = None,
     ):
         await self._handle_joinvc(interaction, channel)
 
-    @app_commands.command(name="leavevc", description="Leave current voice channel")
+    @vc_group.command(name="leave", description="Leave current voice channel")
     @u.requires(_voice_permission, perm_module="voice")
-    async def slash_leavevc(self, interaction: discord.Interaction):
+    async def vc_leave(self, interaction: discord.Interaction):
         await self._handle_leavevc(interaction)
 
-    @commands.command(name="joinvc")
+    # ========== Prefix Group: vc ==========
+
+    @commands.group(name="vc", invoke_without_command=True)
+    async def prefix_vc(self, ctx: commands.Context):
+        await ctx.send("Use subcommands: `vc join [channel]`, `vc leave`")
+
+    @prefix_vc.command(name="join")
     @u.requires(_voice_permission, perm_module="voice")
-    async def prefix_joinvc(
+    async def prefix_vc_join(
         self, ctx: commands.Context, channel: discord.VoiceChannel | None = None
     ):
         await self._handle_joinvc(ctx, channel)
 
-    @commands.command(name="leavevc")
+    @prefix_vc.command(name="leave")
     @u.requires(_voice_permission, perm_module="voice")
-    async def prefix_leavevc(self, ctx: commands.Context):
+    async def prefix_vc_leave(self, ctx: commands.Context):
         await self._handle_leavevc(ctx)
 
     async def _handle_joinvc(self, source, channel: discord.VoiceChannel | None = None):
