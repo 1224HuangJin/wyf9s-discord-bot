@@ -173,18 +173,21 @@ async def on_tree_error(
             f":x: **Internal error**: `{error}`", ephemeral=True
         )
 
-    # Log to audit
+    # Log to audit (silently ignore if audit fails)
     audit = getattr(client, "audit", None)
     if audit:
-        await audit.log(
-            action=f"slash-error/{cmd_name}",
-            user=interaction.user,
-            guild=interaction.guild,
-            channel=interaction.channel,
-            detail=f"`{type(error).__name__}`: {str(error)[:900]}",
-            success=False,
-            auto=True,
-        )
+        try:
+            await audit.log(
+                action=f"slash-error/{cmd_name}",
+                user=interaction.user,
+                guild=interaction.guild,
+                channel=interaction.channel,
+                detail=f"```\n{type(error).__name__}: {str(error)[:900]}\n```",
+                success=False,
+                auto=True,
+            )
+        except Exception:
+            pass
 
 
 # endregion error-handling

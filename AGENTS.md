@@ -84,4 +84,10 @@ class MyModule:
 - `README.md` — user-facing feature overview
 - `AGENTS.md` — developer/agent instructions only (keep non-overlapping with README)
 
+## Error Handling
+
+- All slash command errors are caught by `client.tree.error` in `main.py`, which logs full tracebacks and sends to the global audit channel.
+- Batch operations (e.g. `clear-message`, `announce`, `antispam-auto-catch`) should **not** log individual per-item failures to audit—log one summary at the end. Use `l.warning()` for per-item debug logging to avoid flooding audit channels.
+- If audit logging itself fails (e.g. channel not found, Forbidden), catch and silently ignore.
+
 @README.md
