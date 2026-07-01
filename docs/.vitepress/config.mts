@@ -15,13 +15,13 @@ export default defineConfig({
 
   head: [
     ['meta', { name: 'theme-color', content: '#5865F2' }],
-    ['link', { rel: 'icon', href: '/favicon.ico' }],
+    ['link', { rel: 'icon', href: '/favicon.png' }],
     ['link', { rel: 'apple-touch-icon', href: '/favicon.png' }],
   ],
 
   themeConfig: {
     // https://vitepress.dev/reference/default-theme-config
-    logo: '/logo.png',
+    logo: '/favicon.png',
     nav: [
       { text: '指南', link: '/guide/introduction' },
       { text: '模块 & 指令', link: '/modules/' },
@@ -29,8 +29,10 @@ export default defineConfig({
       {
         text: '相关链接',
         items: [
+          { text: 'Bot Invite', link: 'https://discord.com/oauth2/authorize?client_id=1268221966544932945' },
           { text: 'GitHub 仓库', link: 'https://github.com/wyf9/wyf9s-discord-bot' },
           { text: 'discord.py 文档', link: 'https://discordpy.readthedocs.io/' },
+          { text: 'Contact', link: 'https://wyf9.top/c' },
         ],
       },
     ],

@@ -10,7 +10,7 @@
 
 | 模块 | 配置键 | 类型 | 指令 | 文档 |
 | --- | --- | --- | --- | --- |
-| 工具 / 管理 | `tools` | 指令 | `random` `uuid` `2file` `delete` `clear-message` `move-channel` | [查看](/modules/tools) |
+| 工具 / 管理 | `tools` | 指令 | `random` `uuid` `to-file` `delete` `clear-message` `move-channel` | [查看](/modules/tools) |
 | 表情 | `emoji` | 指令 | `/e` `/emoji info` `/emoji update` | [查看](/modules/emoji) |
 | 频道锁定 | `lock` | 指令 | `/lock now` `/lock unlock` `/lock plan` `/lock unplan` | [查看](/modules/lock) |
 | 语音频道 | `voicechannel` | 指令 | `/vc join` `/vc leave` | [查看](/modules/voice) |
@@ -26,7 +26,7 @@
 | --- | --- | --- | --- | --- |
 | `/random` | tools | 所有人 | ✅ | 生成范围随机数 |
 | `/uuid` | tools | 所有人 | ✅ | 生成 UUID（私密消息） |
-| `/2file` | tools | 所有人 | ✅ | 文本转文件发送 |
+| `/to-file` | tools | 所有人 | ✅ | 文本转文件发送 |
 | `/delete` | tools | Mod | — | 删除单条消息 |
 | `/clear-message` | tools | Mod | — | 按条件批量清理消息 |
 | `/move-channel` | tools | Mod | — | 移动频道位置 / 分类 |

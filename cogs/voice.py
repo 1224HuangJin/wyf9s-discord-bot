@@ -12,9 +12,15 @@ def _voice_permission(
     user: discord.User | discord.Member,
     guild: discord.Guild | None,
 ) -> bool:
-    allowed = module.c.voicechannel.allowed_user_ids
-    if user.id in allowed or user.name in allowed:
+    vc = module.c.voicechannel
+    if user.id in vc.allowed_users or user.name in vc.allowed_users:
         return True
+    if isinstance(user, discord.Member) and guild is not None:
+        guild_users = vc.allowed_guilds.get(
+            guild.id, vc.allowed_guilds.get(str(guild.id), [])
+        )
+        if u.matches_identity(user, guild_users):
+            return True
     return u.is_mod(user, module.c, guild)
 
 

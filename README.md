@@ -43,7 +43,7 @@
 | `/emoji info` | 所有人 | 表情库信息 |
 | `/random [min] [max]` | 所有人 | 随机数 |
 | `/uuid` | 所有人 | 生成 UUID |
-| `/2file <name> <content>` | 所有人 | 内容导出为文件 |
+| `/to-file <name> <content>` | 所有人 | 内容导出为文件 |
 | `/delete <id>` | Mod | 删除消息 |
 | `/clear-message ...` | Mod | 批量清理消息 |
 | `/move-channel ...` | Mod | 移动频道 |

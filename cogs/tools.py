@@ -196,12 +196,12 @@ class ToolsCog(commands.Cog):
             interaction, target_channel, category, before, after, sync_perm
         )
 
-    @app_commands.command(name="2file", description="Send text as a file")
+    @app_commands.command(name="to-file", description="Send text as a file")
     @app_commands.describe(name="Filename", content="File content")
-    async def slash_2file(
+    async def slash_to_file(
         self, interaction: discord.Interaction, name: str, content: str
     ):
-        await self._handle_2file(interaction, name, content)
+        await self._handle_to_file(interaction, name, content)
 
     # ========== Prefix Commands ==========
 
@@ -343,9 +343,9 @@ class ToolsCog(commands.Cog):
     ):
         await self._handle_move_channel(ctx, target_channel, category, None, None, True)
 
-    @commands.command(name="2file")
-    async def prefix_2file(self, ctx: commands.Context, name: str, *, content: str):
-        await self._handle_2file(ctx, name, content)
+    @commands.command(name="to-file")
+    async def prefix_to_file(self, ctx: commands.Context, name: str, *, content: str):
+        await self._handle_to_file(ctx, name, content)
 
     # ========== Shared Logic ==========
 
@@ -380,15 +380,15 @@ class ToolsCog(commands.Cog):
             delete_after=delete_after,
         )
 
-    async def _handle_2file(self, source, name: str, content: str):
-        if not await self._check_rate_limit(source, "2file"):
+    async def _handle_to_file(self, source, name: str, content: str):
+        if not await self._check_rate_limit(source, "to-file"):
             return
         bio = io.BytesIO(content.encode("utf-8"))
         await u.send_msg(source, "", file=discord.File(fp=bio, filename=name))
         user = source.user if isinstance(source, discord.Interaction) else source.author
         if self.audit:
             await self.audit.log(
-                action="/2file",
+                action="to-file",
                 user=user,
                 guild=source.guild,
                 channel=source.channel,

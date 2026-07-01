@@ -19,7 +19,7 @@ def _voice_permission(
     - 未配置白名单 (allowed_user_ids 为空): 仅 mod 可用
     - 已配置白名单: 白名单用户 或 mod 均可用
     """
-    allowed = module.c.voicechannel.allowed_user_ids
+    allowed = module.c.voicechannel.allowed_users
     if user.id in allowed or user.name in allowed:
         return True
     return u.is_mod(user, module.c, guild)

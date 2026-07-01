@@ -106,7 +106,7 @@ tools:
     mod_multiplier: 3
     random: 10
     uuid: 10
-    "2file": 10
+    "2file": 10               # to-file 的 YAML 键名 (兼容旧称)
 
 # 频道锁定模块
 lock:

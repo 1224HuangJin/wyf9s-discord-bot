@@ -4,11 +4,15 @@
 
 ## 自定义指令限速
 
-[工具模块](/modules/tools)对以下三个「所有人可用」指令实现了**滑动窗口限速**，防止滥用：
+[工具模块](/modules/tools)和[表情模块](/modules/emoji)对以下指令实现了**滑动窗口限速**，防止滥用：
 
 - `random`
 - `uuid`
-- `2file`
+- `to-file`
+- `e`
+- `emoji-info`
+
+此外，**所有指令**均有 10reqs / 10s 全局限速 fallback（由 `@u.requires()` 装饰器统一处理）。
 
 ### 工作原理
 
@@ -43,7 +47,7 @@ tools:
     mod_multiplier: 3      # mod 额度倍数 (相对普通用户); admin 不受限速
     random: 10             # random: 普通用户每窗口最大次数
     uuid: 10               # uuid:   普通用户每窗口最大次数
-    "2file": 10            # 2file:  普通用户每窗口最大次数
+    "2file": 10            # to-file:  普通用户每窗口最大次数 (YAML 键: "2file")
 ```
 
 | 字段 | 类型 | 默认值 | 说明 |
@@ -53,10 +57,10 @@ tools:
 | `mod_multiplier` | `int` | `3` | mod 相对普通用户的额度倍数 |
 | `random` | `int` | `10` | `random` 每窗口最大次数（普通用户） |
 | `uuid` | `int` | `10` | `uuid` 每窗口最大次数（普通用户） |
-| `2file` | `int` | `10` | `2file` 每窗口最大次数（普通用户，YAML 中写作 `"2file"`） |
+| `"2file"` | `int` | `10` | `to-file` 每窗口最大次数（YAML 键名，内部字段 `to_file`） |
 
 ::: tip
-`2file` 因不是合法的 Python 标识符，在配置模型中通过别名映射（内部字段名 `twofile`）。YAML 中请写作 `"2file"`。
+`"2file"` 是 `to-file` 指令在 YAML 中的键名（历史兼容），内部 Pydantic 字段名为 `to_file`，通过 `Field(alias="2file")` 映射。
 :::
 
 ## Discord API Rate Limit

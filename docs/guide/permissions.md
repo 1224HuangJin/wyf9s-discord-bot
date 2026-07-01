@@ -13,12 +13,12 @@
 
 ```
 config admins   →  Admin (所有权限)
-服务器管理员     →  Mod (mod 命令权限，不含 admin 专属)
+服务器管理员    →  Mod (mod 命令权限，不含 admin 专属)
 config mods     →  Mod
 perm.yaml       →  Mod (动态规则追加)
 ```
 
-- **Admin** = 仅限 `admins.users` 名单（不再包含服务器管理员）
+- **Admin** = 仅限 `admins.users` 名单
 - **Mod** = 服务器管理员 + config admins + config mods + perm.yaml 动态规则
 
 `/sync`、`/reload`、`/emoji update` 等 Admin 命令**仅 config admins 可用**，服务器管理员无法使用。
@@ -71,7 +71,7 @@ async def _handle_lock(self, source, channel=None):
 
 | 指令 | 所需权限 |
 | --- | --- |
-| `random` / `uuid` / `2file` | 所有人（受[限速](/guide/rate-limit)） |
+| `random` / `uuid` / `to-file` | 所有人（受[限速](/guide/rate-limit)） |
 | `/e` / `/emoji info` | 所有人（受限速） |
 | `delete` / `clear-message` / `move-channel` | Mod |
 | `/lock now` / `/lock unlock` / `/lock plan` / `/lock unplan` | Mod |

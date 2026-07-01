@@ -32,18 +32,18 @@
 
 - 前缀命令中 `delete_after <= 0` 时使用默认值。
 
-### `2file` — 文本转文件
+### `to-file` — 文本转文件
 
-将一段文本内容作为文件发送。
+将文本内容以文件形式发送。
 
 | 项目 | 说明 |
 | --- | --- |
 | 权限 | 所有人 |
-| 限速 | ✅ 受限（`2file`，默认 10 次 / 60s） |
 | 参数 | `name`（文件名）、`content`（文件内容） |
-| 审计 | ✅ 记录（`/2file`） |
+| 限速 | ✅ 受限（`to-file`，默认 10 次 / 60s） |
+| 审计 | ✅ 记录（`to-file`） |
 
-- 前缀：`//2file 文件名.txt 剩余内容作为文件正文`（`content` 为剩余全部文本）。
+- 前缀：`//to-file 文件名.txt 剩余内容作为文件正文`（`content` 为剩余全部文本）。
 
 ### `delete` — 删除消息
 
@@ -139,7 +139,7 @@
 
 ## 限速
 
-`random` / `uuid` / `2file` 受滑动窗口限速，Admin 不受限、Mod 额度为普通用户的 `mod_multiplier` 倍。详见[限速与 Rate Limit](/guide/rate-limit)。
+`random` / `uuid` / `to-file` 受滑动窗口限速，Admin 不受限、Mod 额度为普通用户的 `mod_multiplier` 倍。详见[限速与 Rate Limit](/guide/rate-limit)。
 
 ## 配置
 
@@ -148,13 +148,13 @@ tools:
   enabled: false
   slash: true
   prefix: true
-  ratelimit:              # 仅作用于 random / uuid / 2file
+  ratelimit:              # 仅作用于 random / uuid / to-file
     enabled: true
     window: 60            # 时间窗口 (秒)
     mod_multiplier: 3     # mod 额度倍数; admin 不受限速
     random: 10
     uuid: 10
-    "2file": 10
+    "2file": 10           # to-file 的 YAML 键名 (兼容旧称)
 ```
 
 | 字段 | 类型 | 默认值 | 说明 |

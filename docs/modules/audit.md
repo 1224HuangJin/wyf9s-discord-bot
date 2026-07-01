@@ -31,7 +31,7 @@
 
 | 来源模块 | 操作名 |
 | --- | --- |
-| tools | `delete`、`clear-message`、`move-channel`、`/2file` |
+| tools | `delete`、`clear-message`、`move-channel`、`to-file` |
 | admin | `/sync`、`/reload` |
 | emoji | `emoji-update` |
 | lock | `lock`、`unlock`、`plan-lock`、`unplan-lock` |

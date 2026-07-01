@@ -55,19 +55,19 @@ emoji:
 
 # =============================================================================
 # 工具/管理指令模块
-# 指令: /random /uuid /2file (所有人, 限速), /delete /clear-message /move-channel (mod)
+# 指令: /random /uuid /to-file (所有人, 限速), /delete /clear-message /move-channel (mod)
 # =============================================================================
 tools:
   enabled: false
   slash: true
   prefix: true
-  ratelimit:                  # 限速 (仅作用于 random / uuid / 2file)
+  ratelimit:                  # 限速 (仅作用于 random / uuid / to-file)
     enabled: true             # 是否启用限速
     window: 60                # 时间窗口 (秒)
     mod_multiplier: 3         # mod 的额度倍数 (相对普通用户); admin 不受限速
     random: 10                # random: 普通用户每窗口最大次数
     uuid: 10                  # uuid:   普通用户每窗口最大次数
-    "2file": 10               # 2file:  普通用户每窗口最大次数
+    "2file": 10               # to-file:  普通用户每窗口最大次数 (YAML 键: "2file")
 
 # =============================================================================
 # 频道锁定模块 (使用 Cog 子命令)
@@ -102,7 +102,8 @@ voicechannel:
   enabled: false
   slash: true
   prefix: true
-  allowed_user_ids: []        # voice 命令白名单: 留空则仅 mod 可用; 非空则白名单用户 + mod 可用
+  allowed_users: []           # voice 白名单 (全局): 留空则仅 mod 可用
+  allowed_guilds: {}           # voice 白名单 (按服务器) { guild_id: [user...] }
 
 # =============================================================================
 # 反垃圾消息模块 (无指令, 基于事件)

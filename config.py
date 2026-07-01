@@ -87,8 +87,8 @@ class _ToolsRateLimitConfigModel(BaseModel):
     uuid: int = 10
     """uuid 指令: 窗口内普通用户最大次数"""
 
-    twofile: int = Field(default=10, alias="2file")
-    """2file 指令: 窗口内普通用户最大次数"""
+    to_file: int = Field(default=10, alias="2file")
+    """to-file 指令: 窗口内普通用户最大次数 (YAML 键: "2file")"""
 
     e: int = 10
     """e 指令: 窗口内普通用户最大次数"""
@@ -101,7 +101,7 @@ class _ToolsRateLimitConfigModel(BaseModel):
         return {
             "random": self.random,
             "uuid": self.uuid,
-            "2file": self.twofile,
+            "to-file": self.to_file,
             "e": self.e,
             "emoji-info": self.emoji_info,
         }.get(command)
@@ -183,11 +183,14 @@ class _VoiceChannelConfigModel(BaseModel):
     prefix: bool = True
     """是否注册前缀指令"""
 
-    allowed_user_ids: list[int | str] = []
+    allowed_users: list[int | str] = []
     """
-    允许使用 join/leave vc 命令的用户 ID / 用户名列表 (白名单)
-    - 留空: 仅 mod (含 admin) 可用
-    - 非空: 白名单用户 或 mod 均可用
+    全局允许使用 voice 命令的用户 ID / 用户名列表 (白名单)
+    """
+
+    allowed_guilds: dict[int | str, list[int | str]] = {}
+    """
+    按服务器配置的 voice 允许列表, key 为 guild id
     """
 
 

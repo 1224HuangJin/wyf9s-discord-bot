@@ -10,6 +10,18 @@ import utils as u
 from perm import PermStore
 
 
+def _perm_permission(
+    module: "PermCog",
+    user: discord.User | discord.Member,
+    guild: discord.Guild | None,
+) -> bool:
+    if u.is_admin(user, module.c):
+        return True
+    if u.is_server_admin(user):
+        return True
+    return False
+
+
 class PermCog(commands.Cog):
     def __init__(self, bot: commands.Bot):
         self.bot = bot
@@ -18,7 +30,7 @@ class PermCog(commands.Cog):
         self.perm_store: PermStore = getattr(bot, "perm_store", PermStore())
         bot.perm_store = self.perm_store  # ty:ignore[unresolved-attribute]
 
-    # ========== /perm add ==========
+    # ========== /perm list ==========
 
     @app_commands.command(name="perm", description="Manage dynamic permissions")
     @app_commands.describe(
@@ -38,7 +50,7 @@ class PermCog(commands.Cog):
             app_commands.Choice(name="show", value="show"),
         ]
     )
-    @u.requires(u.Permission.ADMIN)
+    @u.requires(_perm_permission)
     async def perm(
         self,
         interaction: discord.Interaction,
@@ -102,6 +114,17 @@ class PermCog(commands.Cog):
     ):
         is_interaction = isinstance(source, discord.Interaction)
         actor = source.user if is_interaction else source.author
+
+        is_config = u.is_admin(actor, self.c)
+
+        if not is_config and global_scope:
+            await self._reply(
+                source,
+                ":x: **Server admins cannot add global rules**",
+                ephemeral=True,
+                private=private,
+            )
+            return
 
         if not user:
             await self._reply(
@@ -289,6 +312,20 @@ class PermCog(commands.Cog):
         private: bool,
     ):
         guild_id = source.guild.id if source.guild else None
+        guild = source.guild
+
+        # Show server admins as built-in :lock: entries
+        srv_admin_lines: list[str] = []
+        if scope == "server" and guild:
+            config_admins = {str(x) for x in self.c.admins.users}
+            for member in guild.members:
+                if member.guild_permissions.administrator:
+                    uid = str(member.id)
+                    if uid not in config_admins:
+                        srv_admin_lines.append(
+                            f"> :lock: :homes: Server Admin: `{member.name}` (`{uid}`)"
+                        )
+
         rules = self.perm_store.find(
             user=user,
             module=module,
@@ -297,7 +334,7 @@ class PermCog(commands.Cog):
             guild_id=guild_id,
         )
 
-        if not rules:
+        if not rules and not srv_admin_lines:
             await self._reply(
                 source,
                 ":information_source: **No permission rules found**",
@@ -306,7 +343,12 @@ class PermCog(commands.Cog):
             )
             return
 
-        lines = [f"**Permission Rules** (scope: `{scope}`, {len(rules)} total):"]
+        lines = [f"**Permission Rules** (scope: `{scope}`, {len(rules)} rule(s)):"]
+        if srv_admin_lines:
+            lines.append("**Built-in (Server Admins):**")
+            lines.extend(srv_admin_lines)
+            if rules:
+                lines.append("**Dynamic Rules:**")
         config_users = {str(x) for x in self.c.admins.users}
         for r in rules:
             locked = any(uid in config_users for uid in r.users)

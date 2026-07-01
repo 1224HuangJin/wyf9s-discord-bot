@@ -7,6 +7,9 @@ hero:
   tagline: 基于 discord.py 构建，使用 YAML + Pydantic 配置验证，模块化设计
   actions:
     - theme: brand
+      text: 邀请机器人
+      link: https://discord.com/oauth2/authorize?client_id=1268221966544932945
+    - theme: alt
       text: 项目介绍
       link: /guide/introduction
     - theme: alt
@@ -22,7 +25,7 @@ hero:
 features:
   - icon: 🧰
     title: 工具 / 管理
-    details: 随机数 / UUID 生成、消息删除、按条件批量清理消息、频道移动、文本转文件
+    details: 随机数 / UUID 生成、消息删除、按条件批量清理消息、频道移动、to-file文本转文件
     link: /modules/tools
   - icon: 😄
     title: 表情
