@@ -38,11 +38,11 @@ features:
     link: /modules/voice
   - icon: ⚙️
     title: 管理 & 热重载
-    details: 指令同步 `/sync`、Cog 热重载 `/reload`（支持列表补全，15s 冷却防滥用）
+    details: 指令同步 /sync、Cog 热重载 /reload (支持列表补全，15s 冷却防滥用)
     link: /modules/admin
   - icon: 🔐
     title: 动态权限
-    details: `/perm add/rm/show` 管理 perm.yaml 动态权限规则，config.yaml 始终优先
+    details: /perm add/rm/show 管理 perm.yaml 动态权限规则，config.yaml 始终优先
     link: /modules/perm
   - icon: 🤖
     title: 自动管理

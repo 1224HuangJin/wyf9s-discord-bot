@@ -63,10 +63,54 @@ class _LoggingConfigModel(BaseModel):
         return upper
 
 
+class _ToolsRateLimitConfigModel(BaseModel):
+    """
+    限速配置
+    - admin (配置 admins) 不受限速
+    - mod 的额度为普通用户的 mod_multiplier 倍
+    """
+
+    model_config = ConfigDict(populate_by_name=True)
+
+    enabled: bool = True
+    """是否启用限速"""
+
+    window: int = 60
+    """时间窗口 (秒)"""
+
+    mod_multiplier: int = 3
+    """mod 的额度倍数 (相对普通用户)"""
+
+    random: int = 10
+    """random 指令: 窗口内普通用户最大次数"""
+
+    uuid: int = 10
+    """uuid 指令: 窗口内普通用户最大次数"""
+
+    twofile: int = Field(default=10, alias="2file")
+    """2file 指令: 窗口内普通用户最大次数"""
+
+    e: int = 10
+    """e 指令: 窗口内普通用户最大次数"""
+
+    emoji_info: int = Field(default=10, alias="emoji-info")
+    """emoji info 指令: 窗口内普通用户最大次数"""
+
+    def limit_for(self, command: str) -> int | None:
+        """获取指定指令的基础限速额度, 未配置则返回 None (不限速)"""
+        return {
+            "random": self.random,
+            "uuid": self.uuid,
+            "2file": self.twofile,
+            "e": self.e,
+            "emoji-info": self.emoji_info,
+        }.get(command)
+
+
 class _EmojiConfigModel(BaseModel):
     """
     Emoji 模块配置
-    指令: emoji, emoji-info, emoji-update
+    指令: /e, /emoji info, /emoji update
     """
 
     enabled: bool = False
@@ -83,6 +127,9 @@ class _EmojiConfigModel(BaseModel):
 
     max_results: int = 25
     """表情搜索的最大结果数 (设置过大可能导致调用失败)"""
+
+    ratelimit: _ToolsRateLimitConfigModel = _ToolsRateLimitConfigModel()
+    """限速配置 (/e / /emoji info)"""
 
 
 class _AutoRemoveTodoConfigModel(BaseModel):
@@ -235,42 +282,6 @@ class _ScopedPermissionListConfigModel(BaseModel):
 
     guilds: dict[int | str, list[int | str]] = {}
     """按服务器配置的允许列表，key 为 guild id，可写数字或字符串"""
-
-
-class _ToolsRateLimitConfigModel(BaseModel):
-    """
-    工具模块限速配置 (仅作用于 random / uuid / 2file)
-    - admin (服务器管理员 / 配置 admin) 不受限速
-    - mod 的额度为普通用户的 mod_multiplier 倍
-    """
-
-    model_config = ConfigDict(populate_by_name=True)
-
-    enabled: bool = True
-    """是否启用限速"""
-
-    window: int = 60
-    """时间窗口 (秒)"""
-
-    mod_multiplier: int = 3
-    """mod 的额度倍数 (相对普通用户)"""
-
-    random: int = 10
-    """random 指令: 窗口内普通用户最大次数"""
-
-    uuid: int = 10
-    """uuid 指令: 窗口内普通用户最大次数"""
-
-    twofile: int = Field(default=10, alias="2file")
-    """2file 指令: 窗口内普通用户最大次数"""
-
-    def limit_for(self, command: str) -> int | None:
-        """获取指定指令的基础限速额度, 未配置则返回 None (不限速)"""
-        return {
-            "random": self.random,
-            "uuid": self.uuid,
-            "2file": self.twofile,
-        }.get(command)
 
 
 class _ToolsConfigModel(BaseModel):

@@ -38,6 +38,7 @@ class PermCog(commands.Cog):
             app_commands.Choice(name="show", value="show"),
         ]
     )
+    @u.requires(u.Permission.ADMIN)
     async def perm(
         self,
         interaction: discord.Interaction,
@@ -74,15 +75,6 @@ class PermCog(commands.Cog):
         scope: str,
         private: bool,
     ):
-        is_interaction = isinstance(source, discord.Interaction)
-        actor = source.user if is_interaction else source.author
-
-        if not u.is_admin(actor, self.c):
-            await self._reply(
-                source, ":x: **No permission** :x:", ephemeral=True, private=False
-            )
-            return
-
         if action == "add":
             await self._perm_add(source, user, module, command, global_scope, private)
         elif action == "rm":

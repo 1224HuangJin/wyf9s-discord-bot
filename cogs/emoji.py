@@ -68,6 +68,8 @@ class EmojiCog(commands.Cog):
 
     @emoji_group.command(name="info", description="Show emoji source info")
     async def emoji_info(self, interaction: discord.Interaction):
+        if not await self._check_rate_limit(interaction, "emoji-info"):
+            return
         ed = self.emoji_data
         msg = (
             f"**:information_source: Emojis Info**\n"
@@ -98,6 +100,8 @@ class EmojiCog(commands.Cog):
     @app_commands.describe(name="Search and select an emoji")
     @app_commands.autocomplete(name=e_autocomplete)
     async def e(self, interaction: discord.Interaction, name: str):
+        if not await self._check_rate_limit(interaction, "e"):
+            return
         if name not in self.emoji_data.emojis:
             await interaction.response.send_message(
                 ":x: **Invalid emoji name, please select from list**",
@@ -160,6 +164,8 @@ class EmojiCog(commands.Cog):
 
     @prefix_emoji.command(name="info")
     async def prefix_emoji_info(self, ctx: commands.Context):
+        if not await self._check_rate_limit(ctx, "emoji-info"):
+            return
         ed = self.emoji_data
         msg = (
             f"**:information_source: Emojis Info**\n"
@@ -176,6 +182,8 @@ class EmojiCog(commands.Cog):
 
     @commands.command(name="e")
     async def prefix_e(self, ctx: commands.Context, *, name: str):
+        if not await self._check_rate_limit(ctx, "e"):
+            return
         if name not in self.emoji_data.emojis:
             await ctx.send(
                 ":x: **Invalid emoji name, please select from list**", delete_after=10
@@ -203,6 +211,32 @@ class EmojiCog(commands.Cog):
             )
 
     # ========== Shared Logic ==========
+
+    async def _check_rate_limit(self, source, command: str) -> bool:
+        rl = self.c.emoji.ratelimit
+        if not rl.enabled:
+            return True
+        user = source.user if isinstance(source, discord.Interaction) else source.author
+        if u.is_admin(user, self.c):
+            return True
+        base = rl.limit_for(command)
+        if base is None:
+            return True
+        rate_limiter = getattr(self.bot, "rate_limiter", None)
+        if not rate_limiter:
+            return True
+        guild = getattr(source, "guild", None)
+        limit = base * rl.mod_multiplier if u.is_mod(user, self.c, guild) else base
+        allowed, retry_after = rate_limiter.hit((command, user.id), limit, rl.window)
+        if not allowed:
+            await u.send_msg(
+                source,
+                f":hourglass_flowing_sand: **Rate limited, retry in `{retry_after:.0f}s`**",
+                ephemeral=True,
+                delete_after=10,
+            )
+            return False
+        return True
 
     async def update_emoji_list(self) -> tuple[bool, str]:
         l.info("[emoji] Updating emoji list...")

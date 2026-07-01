@@ -43,6 +43,15 @@ emoji:
   prefix: true
   base_url: "https://ghimg.siiway.top/emoji"
   max_results: 25
+  ratelimit:                  # 限速 (/e / /emoji info)
+    enabled: true
+    window: 60
+    mod_multiplier: 3
+    random: 10
+    uuid: 10
+    "2file": 10
+    e: 10
+    "emoji-info": 10
 
 # =============================================================================
 # 工具/管理指令模块

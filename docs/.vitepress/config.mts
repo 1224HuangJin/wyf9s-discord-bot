@@ -15,10 +15,13 @@ export default defineConfig({
 
   head: [
     ['meta', { name: 'theme-color', content: '#5865F2' }],
+    ['link', { rel: 'icon', href: '/favicon.ico' }],
+    ['link', { rel: 'apple-touch-icon', href: '/favicon.png' }],
   ],
 
   themeConfig: {
     // https://vitepress.dev/reference/default-theme-config
+    logo: '/logo.png',
     nav: [
       { text: '指南', link: '/guide/introduction' },
       { text: '模块 & 指令', link: '/modules/' },

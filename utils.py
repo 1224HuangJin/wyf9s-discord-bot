@@ -133,8 +133,8 @@ def is_config_admin(user: discord.User | discord.Member, config: "ConfigModel") 
 
 
 def is_admin(user: discord.User | discord.Member, config: "ConfigModel") -> bool:
-    """是否为管理员 (服务器管理员 或 配置 admin)"""
-    return is_server_admin(user) or is_config_admin(user, config)
+    """是否为管理员 (仅限 config.yaml > admins.users 名单)"""
+    return is_config_admin(user, config)
 
 
 def is_mod(
@@ -142,8 +142,10 @@ def is_mod(
     config: "ConfigModel",
     guild: discord.Guild | None = None,
 ) -> bool:
-    """是否为 mod (管理员 或 全局/服务器 mod 名单)"""
+    """是否为 mod (服务器管理员 / 配置 admin / 全局或服务器 mod 名单)"""
     if is_admin(user, config):
+        return True
+    if is_server_admin(user):
         return True
     if isinstance(user, discord.Member):
         if matches_identity(user, config.mods.users):
@@ -219,6 +221,7 @@ def requires(
     - 自动从 `source` (Interaction / Context) 解析用户与服务器
     - 统一走 `has_permission` 判定, 不通过则回复拒绝消息并中止
     - 若 config 权限未通过, 回退到 perm.yaml 动态权限检查
+    - 内置全局限速: 每用户每指令 10reqs/10s
 
     用法::
 
@@ -237,11 +240,26 @@ def requires(
             )
             guild = getattr(source, "guild", None)
 
+            # Global rate limit: 10 requests per 10 seconds per command per user
+            bot = getattr(self, "bot", None)
+            if bot:
+                rl = getattr(bot, "rate_limiter", None)
+                if rl:
+                    cmd_key = func.__name__.removeprefix("_handle_")
+                    allowed, retry = rl.hit((f"global:{cmd_key}", user.id), 10, 10)
+                    if not allowed:
+                        await send_msg(
+                            source,
+                            f":hourglass: **Rate limited, retry in `{retry:.0f}s`**",
+                            ephemeral=True,
+                            delete_after=10,
+                        )
+                        return None
+
             if has_permission(perm, self, user, guild):
                 return await func(self, source, *args, **kwargs)
 
             # Fallback: check perm.yaml dynamic permissions
-            bot = getattr(self, "bot", None)
             perm_store = getattr(bot, "perm_store", None) if bot else None
             if perm_store:
                 mod_name = perm_module

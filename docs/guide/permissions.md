@@ -1,29 +1,27 @@
 # 权限系统
 
-本机器人使用**三层自定义权限**（非 Discord 内置角色权限），在 `utils.py` 中实现。
+本机器人使用**多层自定义权限**（非 Discord 内置角色权限），在 `utils.py` 中实现。支持 `config.yaml` + `perm.yaml` 双重来源，`config.yaml` 始终优先。
 
-## 三层权限
+## 权限层级
 
 | 层级 | 判定依据 | 说明 |
 | --- | --- | --- |
-| **服务器管理员** | Discord `administrator` 权限 | 拥有服务器 `administrator` 权限的成员 |
-| **配置管理员** | `config.yaml > admins.users` | 命中 `admins` 名单的用户 |
-| **Mod** | `config.yaml > mods.users`（全局）或 `mods.guilds[guild_id]`（按服务器） | 命中 mod 名单的用户 |
+| **Admin** | `config.yaml > admins.users` | 仅限配置文件中定义的管理员，拥有全部权限 |
+| **Mod** | 服务器 `administrator` + `mods.users` + `mods.guilds` + 动态权限 | mod 命令 + 限速豁免 |
 
 ### 包含关系
 
-判定是**向上包含**的：
-
 ```
-服务器管理员  ⊆  admin (is_admin)
-配置管理员    ⊆  admin (is_admin)
-admin         ⊆  mod   (is_mod)
+config admins   →  Admin (所有权限)
+服务器管理员     →  Mod (mod 命令权限，不含 admin 专属)
+config mods     →  Mod
+perm.yaml       →  Mod (动态规则追加)
 ```
 
-- `is_admin(user)` = 服务器管理员 **或** 配置管理员
-- `is_mod(user, guild)` = `is_admin` **或** 全局 mod **或** 该服务器的 mod
+- **Admin** = 仅限 `admins.users` 名单（不再包含服务器管理员）
+- **Mod** = 服务器管理员 + config admins + config mods + perm.yaml 动态规则
 
-也就是说：**admin 自动拥有 mod 权限**，服务器管理员自动拥有 admin 与 mod 权限。
+`/sync`、`/reload`、`/emoji update` 等 Admin 命令**仅 config admins 可用**，服务器管理员无法使用。
 
 ## 名单匹配规则
 
@@ -74,14 +72,15 @@ async def _handle_lock(self, source, channel=None):
 | 指令 | 所需权限 |
 | --- | --- |
 | `random` / `uuid` / `2file` | 所有人（受[限速](/guide/rate-limit)） |
-| `/e` / `/emoji info` | 所有人 |
+| `/e` / `/emoji info` | 所有人（受限速） |
 | `delete` / `clear-message` / `move-channel` | Mod |
 | `/lock now` / `/lock unlock` / `/lock plan` / `/lock unplan` | Mod |
 | `/vc join` / `/vc leave` | 白名单用户或 Mod（见[语音模块](/modules/voice)） |
-| `/emoji update` | Admin |
-| `/sync` / `/reload` | 配置管理员（`admins.users`） / Admin |
-| `/perm add` / `/perm rm` / `/perm show` | Admin |
+| `/emoji update` | Admin（仅 config admins） |
+| `/sync` | Admin（仅 config admins） |
+| `/reload` | Admin（仅 config admins） |
+| `/perm add` / `/perm rm` / `/perm show` | Admin（仅 config admins） |
 
-::: tip `/sync` 的特殊性
-`/sync` 使用 `is_config_admin` 判定，即**仅限 `admins.users` 名单**，服务器管理员权限不足以使用它。`/reload` 需要 Admin（服务器管理员或配置管理员）。
+::: tip 全局限速
+所有指令均有 10reqs / 10s 全局限速 fallback。Admin 不受限速。
 :::

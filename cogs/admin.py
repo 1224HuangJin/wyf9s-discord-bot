@@ -33,12 +33,8 @@ class AdminCog(commands.Cog):
     # ========== /sync ==========
 
     @app_commands.command(name="sync", description="Sync slash command tree")
+    @u.requires(u.Permission.ADMIN)
     async def slash_sync(self, interaction: discord.Interaction):
-        if not u.is_config_admin(interaction.user, self.c):
-            await interaction.response.send_message(
-                ":x: **No permission** :x:", ephemeral=True
-            )
-            return
         await interaction.response.defer()
         await self.bot.tree.sync()
         l.info("Command tree synced.")
@@ -53,10 +49,8 @@ class AdminCog(commands.Cog):
             )
 
     @commands.command(name="sync")
+    @u.requires(u.Permission.ADMIN)
     async def prefix_sync(self, ctx: commands.Context):
-        if not u.is_config_admin(ctx.author, self.c):
-            await ctx.send("**:x: No permission**", delete_after=10)
-            return
         await ctx.defer()
         await self.bot.tree.sync()
         await ctx.send("**:white_check_mark: Slash commands synced**")
@@ -70,10 +64,8 @@ class AdminCog(commands.Cog):
             )
 
     @commands.command(name="sync-commands")
+    @u.requires(u.Permission.ADMIN)
     async def prefix_sync_commands(self, ctx: commands.Context):
-        if not u.is_config_admin(ctx.author, self.c):
-            await ctx.send("**:x: No permission**", delete_after=10)
-            return
         await ctx.defer()
         await self.bot.tree.sync()
         await ctx.send("**:white_check_mark: Slash commands synced**")
@@ -90,15 +82,10 @@ class AdminCog(commands.Cog):
 
     @app_commands.command(name="reload", description="Reload a cog module (admin only)")
     @app_commands.describe(module="Cog name to reload (empty to list)")
+    @u.requires(u.Permission.ADMIN)
     async def slash_reload(
         self, interaction: discord.Interaction, module: str | None = None
     ):
-        if not u.is_admin(interaction.user, self.c):
-            await interaction.response.send_message(
-                ":x: **No permission** :x:", ephemeral=True
-            )
-            return
-
         now = time.monotonic()
         uid = interaction.user.id
         if uid in _reload_cooldowns:
@@ -115,11 +102,8 @@ class AdminCog(commands.Cog):
         await self._handle_reload(interaction, module)
 
     @commands.command(name="reload")
+    @u.requires(u.Permission.ADMIN)
     async def prefix_reload(self, ctx: commands.Context, *, module: str | None = None):
-        if not u.is_admin(ctx.author, self.c):
-            await ctx.send("**:x: No permission**", delete_after=10)
-            return
-
         now = time.monotonic()
         uid = ctx.author.id
         if uid in _reload_cooldowns:
