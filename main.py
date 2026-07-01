@@ -152,6 +152,43 @@ async def load_cogs():
 
 # endregion modules
 
+# region error-handling
+
+
+@client.tree.error
+async def on_tree_error(
+    interaction: discord.Interaction, error: discord.app_commands.AppCommandError
+):
+    cmd_name = interaction.command.name if interaction.command else "?"
+    user_tag = f"{interaction.user} ({interaction.user.id})"
+    l.opt(exception=error).error(f"[tree] Command '{cmd_name}' from {user_tag}")
+
+    # Notify user
+    if not interaction.response.is_done():
+        await interaction.response.send_message(
+            f":x: **Internal error**: `{error}`", ephemeral=True
+        )
+    else:
+        await interaction.followup.send(
+            f":x: **Internal error**: `{error}`", ephemeral=True
+        )
+
+    # Log to audit
+    audit = getattr(client, "audit", None)
+    if audit:
+        await audit.log(
+            action=f"slash-error/{cmd_name}",
+            user=interaction.user,
+            guild=interaction.guild,
+            channel=interaction.channel,
+            detail=f"`{type(error).__name__}`: {str(error)[:900]}",
+            success=False,
+            auto=True,
+        )
+
+
+# endregion error-handling
+
 # region login
 
 

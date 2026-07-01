@@ -104,6 +104,7 @@ class AnnounceCog(commands.Cog):
 
 
 async def setup(bot: commands.Bot):
-    if bot.config.announce.source_channel:  # ty:ignore[unresolved-attribute]
+    announce_cfg = getattr(bot.config, "announce", None)  # ty:ignore[unresolved-attribute]
+    if announce_cfg and announce_cfg.source_channel:
         await bot.add_cog(AnnounceCog(bot))
         l.info("AnnounceCog loaded.")
