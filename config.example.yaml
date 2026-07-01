@@ -35,7 +35,7 @@ audit:
 
 # =============================================================================
 # Emoji 模块
-# 指令: emoji (所有人), emoji-info (所有人), emoji-update (仅 admin)
+# 指令: /emoji update (admin), /emoji info (所有人), /e (所有人)
 # =============================================================================
 emoji:
   enabled: false
@@ -46,7 +46,7 @@ emoji:
 
 # =============================================================================
 # 工具/管理指令模块
-# 指令: random/uuid/2file (所有人, 限速), delete/clear-message/move-channel (mod), sync (admin)
+# 指令: /random /uuid /2file (所有人, 限速), /delete /clear-message /move-channel (mod)
 # =============================================================================
 tools:
   enabled: false
@@ -61,8 +61,8 @@ tools:
     "2file": 10               # 2file:  普通用户每窗口最大次数
 
 # =============================================================================
-# 频道锁定模块
-# 指令: lock, unlock, plan-lock, unplan-lock
+# 频道锁定模块 (使用 Cog 子命令)
+# 指令: /lock now, /lock unlock, /lock plan, /lock unplan
 # =============================================================================
 lock:
   enabled: false
@@ -119,3 +119,11 @@ admins:
 mods:
   users: []                   # 全局 mod 列表
   guilds: {}                  # 按服务器 mod 列表 { guild_id: [user...] }
+
+# =============================================================================
+# 动态权限模块 (/perm add, /perm rm, /perm show)
+# 权限数据存储在 perm.yaml 中，config.yaml 的 admins/mods 始终优先
+# =============================================================================
+perm:
+  enabled: false              # 是否启用动态权限模块
+  # 权限存储在 perm.yaml 中

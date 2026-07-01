@@ -52,12 +52,7 @@ from config import Config  # noqa: E402
 import utils as u  # noqa: E402
 
 from modules.audit import AuditLogger  # noqa: E402
-from modules.emoji import EmojiModule  # noqa: E402
-from modules.tools import ToolsModule  # noqa: E402
-from modules.lock import LockModule  # noqa: E402
-from modules.antispam import AntiSpamModule  # noqa: E402
-from modules.manage import ManageModule  # noqa: E402
-from modules.voice import VoiceChannelModule  # noqa: E402
+from perm import PermStore  # noqa: E402
 
 # endregion import
 
@@ -67,10 +62,8 @@ from modules.voice import VoiceChannelModule  # noqa: E402
 c = Config().config
 
 # reconfigure loggers now that we have config
-# remove the temporary stderr handler and add proper ones
 l.remove()
 
-# add stderr handler with configured level
 l.add(
     stderr,
     level=c.log.level,
@@ -79,7 +72,6 @@ l.add(
     diagnose=True,
 )
 
-# add file handler if configured
 if c.log.file:
     log_file_path = u.get_path(c.log.file)
     l.add(
@@ -94,91 +86,70 @@ if c.log.file:
     l.info(f"Saving logs to {log_file_path}")
 
 
-# clear and configure discord.py loggers
 logging.getLogger().handlers.clear()
 logging.getLogger("discord").handlers.clear()
 logging.getLogger("discord.http").handlers.clear()
 logging.getLogger("discord.gateway").handlers.clear()
 logging.getLogger("discord.client").handlers.clear()
 
-# update root logger level based on config
 logging.root.handlers = [InterceptHandler()]
 logging.root.setLevel(c.log.level)
 
-# set discord loggers to use InterceptHandler
 discord_logger = logging.getLogger("discord")
 discord_logger.handlers = [InterceptHandler()]
 discord_logger.setLevel(c.log.level)
 
-# reduce discord.http verbosity
 logging.getLogger("discord.http").setLevel(logging.WARNING)
 
 # endregion init
 
 # region setup
 
-# set permission
 intents = discord.Intents.default()
 intents.message_content = True
 
 client = commands.Bot(command_prefix=c.command_prefix, intents=intents, proxy=c.proxy)
 
+# Store config and shared state on bot instance
+client.config = c  # ty:ignore[unresolved-attribute]
+
+if c.audit.enabled:
+    client.audit = AuditLogger(config=c, client=client)  # ty:ignore[unresolved-attribute]
+else:
+    client.audit = None  # ty:ignore[unresolved-attribute]
+
+# Shared state that persists across cog reloads
+client.rate_limiter = u.RateLimiter()  # ty:ignore[unresolved-attribute]
+client.perm_store = PermStore()  # ty:ignore[unresolved-attribute]
+
 # endregion setup
 
 # region modules
 
-# audit logger (shared by all modules)
-has_slash_commands = False
+COG_LIST = [
+    "cogs.emoji",
+    "cogs.tools",
+    "cogs.lock",
+    "cogs.voice",
+    "cogs.antispam",
+    "cogs.manage",
+    "cogs.admin",
+    "cogs.perm",
+]
 
-if c.audit.enabled:
-    audit = AuditLogger(config=c, client=client)
-else:
-    audit = None
 
-tools_module: ToolsModule | None = None
+async def load_cogs():
+    for ext in COG_LIST:
+        try:
+            await client.load_extension(ext)
+            l.info(f"Loaded extension: {ext}")
+        except commands.ExtensionError as e:
+            l.error(f"Failed to load extension {ext}: {e}")
+        except Exception as e:
+            l.error(f"Unexpected error loading {ext}: {e}")
 
-if c.emoji.enabled:
-    emoji_module = EmojiModule(config=c, client=client, audit=audit)
-    if c.emoji.slash:
-        has_slash_commands = True
-    l.info("Emoji module enabled.")
-
-if c.tools.enabled:
-    tools_module = ToolsModule(config=c, client=client, audit=audit)
-    if c.tools.slash:
-        has_slash_commands = True
-    l.info("Tools module enabled.")
-
-if c.lock.enabled:
-    lock_module = LockModule(config=c, client=client, audit=audit)
-    if c.lock.slash:
-        has_slash_commands = True
-    l.info("Lock module enabled.")
-
-if c.rmmsg.enabled or c.rmtodo.enabled:
-    manage_module = ManageModule(config=c, client=client)
-    if c.rmmsg.enabled:
-        l.info("Auto-remove message enabled.")
-    if c.rmtodo.enabled:
-        l.info("Auto-remove todo enabled.")
-
-if c.voicechannel.enabled:
-    voice_channel_module = VoiceChannelModule(config=c, client=client, audit=audit)
-    if c.voicechannel.slash:
-        has_slash_commands = True
-    l.info("Voice channel module enabled.")
-
-if c.antispam.enabled:
-    antispam_module = AntiSpamModule(
-        config=c,
-        client=client,
-        audit=audit,
-    )
-    l.info("Antispam module enabled.")
 
 # endregion modules
-
-# ------------------- 登录 -------------------
 
 # region login
 
@@ -189,24 +160,33 @@ async def on_ready():
         f"Logged in as {client.user} ({client.user.id if client.user else 'unknown'})"
     )
 
-    if has_slash_commands:
-        await client.tree.sync()
-        l.info("Slash commands synced.")
-    else:
-        l.info("No slash commands registered, skipping sync.")
+    await client.tree.sync()
+    l.info("Slash commands synced.")
 
+    # Initialize emoji data on startup
     if c.emoji.enabled:
-        succ, err = await emoji_module.update_emoji_list()
-        if succ:
-            l.info("Emoji list synced.")
-        else:
-            l.warning(f"Emoji list sync failed: {err}")
+        from cogs.emoji import EmojiModel  # noqa: F811
 
-    if c.lock.enabled:
-        await lock_module.start_scheduler()
-        l.info("Lock scheduler started.")
+        if not getattr(client, "emoji_data", None):
+            client.emoji_data = EmojiModel()  # ty:ignore[unresolved-attribute]
+        emoji_cog = client.get_cog("EmojiCog")
+        if emoji_cog:
+            succ, err = await emoji_cog.update_emoji_list()  # ty:ignore[unresolved-attribute]
+            if succ:
+                l.info("Emoji list synced.")
+            else:
+                l.warning(f"Emoji list sync failed: {err}")
 
 
-client.run(c.token)
+async def main():
+    async with client:
+        await load_cogs()
+        await client.start(c.token)
+
+
+if __name__ == "__main__":
+    import asyncio
+
+    asyncio.run(main())
 
 # endregion login

@@ -365,6 +365,16 @@ class _AntiSpamConfigModel(BaseModel):
     """按频道配置的捕获规则"""
 
 
+class _PermConfigModel(BaseModel):
+    """
+    动态权限模块配置
+    指令: /perm add, /perm rm, /perm show
+    """
+
+    enabled: bool = False
+    """是否启用动态权限模块"""
+
+
 class ConfigModel(BaseModel):
     """
     基础配置
@@ -393,6 +403,7 @@ class ConfigModel(BaseModel):
     voicechannel: _VoiceChannelConfigModel = _VoiceChannelConfigModel()
     admins: _PermissionListConfigModel = _PermissionListConfigModel()
     mods: _ScopedPermissionListConfigModel = _ScopedPermissionListConfigModel()
+    perm: _PermConfigModel = _PermConfigModel()
 
 
 class Config:

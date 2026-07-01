@@ -210,12 +210,15 @@ def requires(
     perm: "Permission | PermissionCheck",
     *,
     deny: "str | t.Callable[[discord.User | discord.Member], str]" = DEFAULT_DENY_MESSAGE,
+    perm_module: str | None = None,
+    perm_command: str | None = None,
 ):
     """
     声明式权限控制装饰器, 用于模块的 `_handle_*` 方法
 
     - 自动从 `source` (Interaction / Context) 解析用户与服务器
     - 统一走 `has_permission` 判定, 不通过则回复拒绝消息并中止
+    - 若 config 权限未通过, 回退到 perm.yaml 动态权限检查
 
     用法::
 
@@ -233,11 +236,29 @@ def requires(
                 else source.author
             )
             guild = getattr(source, "guild", None)
-            if not has_permission(perm, self, user, guild):
-                deny_msg = deny if isinstance(deny, str) else deny(user)
-                await send_msg(source, deny_msg, ephemeral=True, delete_after=10)
-                return None
-            return await func(self, source, *args, **kwargs)
+
+            if has_permission(perm, self, user, guild):
+                return await func(self, source, *args, **kwargs)
+
+            # Fallback: check perm.yaml dynamic permissions
+            bot = getattr(self, "bot", None)
+            perm_store = getattr(bot, "perm_store", None) if bot else None
+            if perm_store:
+                mod_name = perm_module
+                cmd_name = perm_command
+                if mod_name is None and cmd_name is None:
+                    cmd_name = func.__name__.removeprefix("_handle_")
+                if perm_store.check(
+                    str(user.id),
+                    guild.id if guild else None,
+                    module=mod_name,
+                    command=cmd_name,
+                ):
+                    return await func(self, source, *args, **kwargs)
+
+            deny_msg = deny if isinstance(deny, str) else deny(user)
+            await send_msg(source, deny_msg, ephemeral=True, delete_after=10)
+            return None
 
         return wrapper
 
