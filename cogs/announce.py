@@ -1,8 +1,8 @@
-import io
 import time
 from datetime import datetime, timezone
 
 from loguru import logger as l
+import aiohttp
 import discord
 from discord import app_commands
 from discord.ext import commands
@@ -12,17 +12,18 @@ import utils as u
 from cogs.subscribe_store import SubscribeStore
 
 
-_ANNOUNCE_COOLDOWN = 60  # seconds between announces
+_ANNOUNCE_COOLDOWN = 60
 
 
 class ConfirmAnnounceView(discord.ui.View):
     def __init__(
-        self, announce: "AnnounceCog", content: str, attachment: discord.File | None
+        self,
+        announce: "AnnounceCog",
+        content: str,
     ):
         super().__init__(timeout=300)
         self.announce = announce
         self.content = content
-        self.attachment = attachment
         self.confirmed: bool | None = None
         self.confirmed_by: discord.User | discord.Member | None = None
 
@@ -75,7 +76,8 @@ class AnnounceCog(commands.Cog):
     # ========== /subscribe ==========
 
     @app_commands.command(
-        name="subscribe", description="Subscribe a channel for announcements"
+        name="subscribe",
+        description="Subscribe or unsubscribe for announcements (toggle)",
     )
     @app_commands.describe(
         channel="Channel to receive announcements (default: current)"
@@ -99,19 +101,67 @@ class AnnounceCog(commands.Cog):
             )
             return
 
-        self.store.add(interaction.guild.id, target.id, interaction.user.id)
+        guild = interaction.guild
+
+        # Check for existing subscription → toggle off
+        existing = self.store.get(guild.id)
+        if existing:
+            # Try to delete the old webhook
+            if existing.webhook_id:
+                try:
+                    wh = await self.bot.fetch_webhook(existing.webhook_id)
+                    await wh.delete()
+                except (discord.NotFound, discord.Forbidden, discord.HTTPException):
+                    pass
+            self.store.remove(guild.id)
+            await interaction.response.send_message(
+                ":white_check_mark: **Unsubscribed.** Announcements will no longer be sent here."
+            )
+            if self.audit:
+                await self.audit.log(
+                    action="subscribe",
+                    user=interaction.user,
+                    guild=guild,
+                    channel=interaction.channel,
+                    detail=f"Unsubscribed (was <#{existing.channel_id}>)",
+                )
+            return
+
+        # Create webhook in target channel
+        try:
+            wh = await target.create_webhook(name="wyf9-announce")
+        except discord.Forbidden:
+            await interaction.response.send_message(
+                ":x: **Bot needs Manage Webhooks permission in this channel**",
+                ephemeral=True,
+            )
+            return
+        except discord.HTTPException as e:
+            await interaction.response.send_message(
+                f":x: **Failed to create webhook:** `{e}`", ephemeral=True
+            )
+            return
+
+        self.store.add(
+            guild_id=guild.id,
+            channel_id=target.id,
+            webhook_url=wh.url,
+            webhook_id=wh.id,
+            user_id=interaction.user.id,
+        )
+
         await interaction.response.send_message(
             f":white_check_mark: **Subscribed** {target.mention} for announcements.\n"
-            f"> Use `/subscribe` again to change channel."
+            f"> Run `/subscribe` again in this server to cancel."
         )
 
         if self.audit:
             await self.audit.log(
                 action="subscribe",
                 user=interaction.user,
-                guild=interaction.guild,
+                guild=guild,
                 channel=interaction.channel,
-                detail=f"Subscribed {target.name} ({target.id}) for announcements",
+                detail=f"Subscribed {target.name} ({target.id}) via webhook",
             )
 
     # ========== /announce ==========
@@ -163,9 +213,7 @@ class AnnounceCog(commands.Cog):
             )
             return
 
-        # Build content
         content = ""
-        attachment = None
 
         if message:
             content = message
@@ -228,23 +276,20 @@ class AnnounceCog(commands.Cog):
             )
             return
 
-        # Send preview with confirm/cancel
-        view = ConfirmAnnounceView(self, content, attachment)
+        # Preview with confirm/cancel
+        view = ConfirmAnnounceView(self, content)
         if is_interaction:
             await source.response.send_message(
-                f"**Preview:**\n{content[:1900]}",
-                view=view,
+                f"**Preview:**\n{content[:1900]}", view=view
             )
         else:
             await source.send(f"**Preview:**\n{content[:1900]}", view=view)
 
-        # Wait for confirm
         await view.wait()
-
         if not view.confirmed:
             return
 
-        # Send to all subscribers
+        # Send via webhooks (avoids bot message rate limit)
         user = source.user if is_interaction else source.author
         timestamp = int(datetime.now(timezone.utc).timestamp())
 
@@ -252,28 +297,28 @@ class AnnounceCog(commands.Cog):
         sent = 0
         failed = 0
 
-        for sub in subs:
-            try:
-                target = self.bot.get_channel(sub.channel_id)
-                if target is None:
-                    target = await self.bot.fetch_channel(sub.channel_id)
-                if isinstance(target, discord.TextChannel):
-                    announce_content = (
-                        f"{content}\n\n-# Sent by {user} · <t:{timestamp}:f>"
-                    )
+        announce_content = f"{content}\n\n-# Sent by {user} · <t:{timestamp}:f>"
+
+        async with aiohttp.ClientSession() as session:
+            for sub in subs:
+                try:
+                    payload = {"content": announce_content}
                     if len(announce_content) > 2000:
-                        buf = io.BytesIO(announce_content.encode("utf-8"))
-                        await target.send(
-                            file=discord.File(fp=buf, filename="announcement.md")
-                        )
-                    else:
-                        await target.send(announce_content)
-                    sent += 1
-                else:
+                        payload = {
+                            "content": announce_content[:1990] + "\n\n-# (truncated)",
+                        }
+                    async with session.post(sub.webhook_url, json=payload) as resp:
+                        if resp.status in (200, 204):
+                            sent += 1
+                        else:
+                            l.warning(
+                                f"[announce] Webhook {sub.webhook_url[:40]}... "
+                                f"returned {resp.status}"
+                            )
+                            failed += 1
+                except Exception as e:
+                    l.warning(f"[announce] Failed to send to {sub.guild_id}: {e}")
                     failed += 1
-            except Exception as e:
-                l.warning(f"[announce] Failed to send to {sub.channel_id}: {e}")
-                failed += 1
 
         self._last_announce = time.monotonic()
 
@@ -292,7 +337,7 @@ class AnnounceCog(commands.Cog):
                 user=user,
                 guild=source.guild,
                 channel=source.channel,
-                detail=f"Announced to {sent} channels ({failed} failed)",
+                detail=f"Announced to {sent} channels via webhooks ({failed} failed)",
             )
 
 

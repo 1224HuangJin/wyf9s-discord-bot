@@ -11,6 +11,8 @@ import utils as u
 class SubscribeEntry(BaseModel):
     guild_id: int
     channel_id: int
+    webhook_url: str
+    webhook_id: int | None = None
     subscribed_by: int
     subscribed_at: datetime
 
@@ -45,11 +47,20 @@ class SubscribeStore:
         except Exception as e:
             raise RuntimeError(f"Cannot write to {self._path}: {e}")
 
-    def add(self, guild_id: int, channel_id: int, user_id: int) -> SubscribeEntry:
-        self.remove(guild_id)  # one subscription per guild
+    def add(
+        self,
+        guild_id: int,
+        channel_id: int,
+        webhook_url: str,
+        webhook_id: int | None,
+        user_id: int,
+    ) -> SubscribeEntry:
+        self.remove(guild_id)
         entry = SubscribeEntry(
             guild_id=guild_id,
             channel_id=channel_id,
+            webhook_url=webhook_url,
+            webhook_id=webhook_id,
             subscribed_by=user_id,
             subscribed_at=datetime.now(timezone.utc),
         )
@@ -57,13 +68,24 @@ class SubscribeStore:
         self._save()
         return entry
 
-    def remove(self, guild_id: int):
-        before = len(self.subscriptions)
-        self.subscriptions = [s for s in self.subscriptions if s.guild_id != guild_id]
-        if len(self.subscriptions) != before:
+    def remove(self, guild_id: int) -> SubscribeEntry | None:
+        removed = None
+        new_list = []
+        for s in self.subscriptions:
+            if s.guild_id == guild_id:
+                removed = s
+            else:
+                new_list.append(s)
+        if removed:
+            self.subscriptions = new_list
             self._save()
-            return True
-        return False
+        return removed
+
+    def get(self, guild_id: int) -> SubscribeEntry | None:
+        for s in self.subscriptions:
+            if s.guild_id == guild_id:
+                return s
+        return None
 
     def get_all(self) -> list[SubscribeEntry]:
         return list(self.subscriptions)

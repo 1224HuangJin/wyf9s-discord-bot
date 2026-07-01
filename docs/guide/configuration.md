@@ -2,10 +2,6 @@
 
 配置文件为项目根目录下的 `config.yaml`（被 `.gitignore` 忽略），可参考 `config.example.yaml`。配置在启动时由 Pydantic 模型校验，字段的**事实来源**是 `config.example.yaml` 与 `config.py`。
 
-::: tip
-`config.*.yaml`（如 `config.prod.yaml`、`config.nbt.yaml`）也会被忽略，可用于保存多套环境配置。
-:::
-
 ## 顶层字段
 
 | 字段 | 类型 | 默认值 | 说明 |

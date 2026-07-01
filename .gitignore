@@ -1,7 +1,6 @@
 # Config file
-config.yaml
-config.*.yaml
-!config.example.yaml
+*.yaml
+!*.example.yaml
 
 # ========== Generated ==========
 
