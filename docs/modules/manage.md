@@ -3,7 +3,7 @@
 基于 `on_message` 事件的自动删除功能，**无指令**。包含两个独立子功能，分别由 `rmmsg` 和 `rmtodo` 配置控制。
 
 - **配置键**：`rmmsg`（按昵称删消息）、`rmtodo`（删 To-Do Bot 消息）
-- **源文件**：`modules/manage.py`
+- **源文件**：`cogs/manage.py`
 
 ::: tip 启用条件
 只要 `rmmsg.enabled` **或** `rmtodo.enabled` 任一为真，模块即会加载并注册 `on_message` 监听。

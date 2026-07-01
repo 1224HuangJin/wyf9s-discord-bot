@@ -74,13 +74,14 @@ async def _handle_lock(self, source, channel=None):
 | 指令 | 所需权限 |
 | --- | --- |
 | `random` / `uuid` / `2file` | 所有人（受[限速](/guide/rate-limit)） |
-| `emoji` / `emoji-info` | 所有人 |
+| `/e` / `/emoji info` | 所有人 |
 | `delete` / `clear-message` / `move-channel` | Mod |
-| `lock` / `unlock` / `plan-lock` / `unplan-lock` | Mod |
-| `vc join` / `vc leave` | 白名单用户或 Mod（见[语音模块](/modules/voice)） |
-| `emoji-update` | Admin |
-| `sync` / `sync-commands` | 配置管理员（`admins.users`） |
+| `/lock now` / `/lock unlock` / `/lock plan` / `/lock unplan` | Mod |
+| `/vc join` / `/vc leave` | 白名单用户或 Mod（见[语音模块](/modules/voice)） |
+| `/emoji update` | Admin |
+| `/sync` / `/reload` | 配置管理员（`admins.users`） / Admin |
+| `/perm add` / `/perm rm` / `/perm show` | Admin |
 
-::: tip `sync` 的特殊性
-`sync` / `sync-commands` 使用 `is_config_admin` 判定，即**仅限 `admins.users` 名单**，服务器管理员权限不足以使用它。
+::: tip `/sync` 的特殊性
+`/sync` 使用 `is_config_admin` 判定，即**仅限 `admins.users` 名单**，服务器管理员权限不足以使用它。`/reload` 需要 Admin（服务器管理员或配置管理员）。
 :::

@@ -3,7 +3,7 @@
 提供常用工具与管理指令：随机数 / UUID 生成、消息删除、批量清理消息、频道移动、文本转文件、指令同步。
 
 - **配置键**：`tools`
-- **源文件**：`modules/tools.py`（批量清理逻辑在 `modules/clear_message.py`）
+- **源文件**：`cogs/tools.py`（批量清理逻辑在 `modules/clear_message.py`）
 
 ## 指令
 
@@ -133,15 +133,9 @@
 - `before` 与 `after` 不能同时指定。
 - 前缀命令仅支持 `target_channel` 与 `category` 两个位置参数。
 
-### `sync` — 同步斜杠指令
-
-向 Discord 同步斜杠指令列表（注册 / 更新命令树）。
-
-| 项目 | 说明 |
-| --- | --- |
-| 权限 | **配置管理员**（`admins.users`，服务器管理员不足以使用） |
-| 审计 | ✅ 记录（`/sync`） |
-| 别名 | 前缀命令 `sync-commands`（等价） |
+::: tip `/sync` 已迁移至 [管理指令](/modules/admin)
+指令同步 `/sync` 和热重载 `/reload` 现在由 `cogs/admin.py` 提供。
+:::
 
 ## 限速
 

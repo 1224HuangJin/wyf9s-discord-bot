@@ -31,11 +31,13 @@
 
 | 来源模块 | 操作名 |
 | --- | --- |
-| tools | `delete`、`clear-message`、`move-channel`、`/2file`、`/sync` |
+| tools | `delete`、`clear-message`、`move-channel`、`/2file` |
+| admin | `/sync`、`/reload` |
 | emoji | `emoji-update` |
 | lock | `lock`、`unlock`、`plan-lock`、`unplan-lock` |
 | voice | `joinvc`、`leavevc` |
 | antispam | `antispam-auto-catch`（自动操作，含失败记录） |
+| perm | `perm-add`、`perm-rm` |
 
 ## 多语言
 

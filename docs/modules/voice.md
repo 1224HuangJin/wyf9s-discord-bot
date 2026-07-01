@@ -3,7 +3,7 @@
 让机器人加入 / 离开语音频道，支持 DAVE 加密。
 
 - **配置键**：`voicechannel`
-- **源文件**：`modules/voice.py`
+- **源文件**：`cogs/voice.py`
 
 ## 权限判定（特殊）
 

@@ -44,7 +44,7 @@ sh update.sh
 | 查看频道 / 发送消息 / 嵌入链接 / 附加文件 | 基础功能、发送嵌入 / 文件 |
 | 管理消息（Manage Messages） | `delete` / `clear-message` / 自动删除 |
 | 管理频道（Manage Channels） | `move-channel` |
-| 管理身份组 / 管理频道 | `lock` / `unlock` / `plan-lock`（修改频道权限覆盖） |
+| 管理身份组 / 管理频道 | `/lock now` `/lock unlock` `/lock plan`（修改频道权限覆盖） |
 | 连接 / 使用语音（Connect / Speak） | `vc join` / `vc leave` |
 | 踢出成员（Kick Members） | 反垃圾 `kick` |
 | 封禁成员（Ban Members） | 反垃圾 `ban` |

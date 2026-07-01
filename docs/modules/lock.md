@@ -3,7 +3,7 @@
 锁定 / 解锁频道（禁止 `@everyone` 发言 / 加入），并支持**定时计划锁定**（单次或每日 / 每周 / 每月周期）。
 
 - **配置键**：`lock`
-- **源文件**：`modules/lock.py`
+- **源文件**：`cogs/lock.py`
 - **数据文件**：`schedules.yaml`（计划锁定持久化，自动生成）
 
 ## 锁定原理
@@ -18,7 +18,7 @@
 
 ## 指令
 
-### `lock` — 锁定频道
+### `/lock now` — 锁定频道
 
 | 项目 | 说明 |
 | --- | --- |
@@ -29,7 +29,7 @@
 - 锁定后会在频道发送 `:lock: 频道已锁定` 提示（语音频道额外提示无法加入）。
 - 锁定会清除该频道已有的计划锁定记录。
 
-### `unlock` — 解锁频道
+### `/lock unlock` — 解锁频道
 
 | 项目 | 说明 |
 | --- | --- |
@@ -37,7 +37,7 @@
 | 参数 | `channel`（可选，默认当前频道） |
 | 审计 | ✅ 记录（`unlock`） |
 
-### `plan-lock` — 计划锁定 / 解锁
+### `/lock plan` — 计划锁定 / 解锁
 
 为频道设置定时锁定 / 解锁计划，支持单次与循环。
 
@@ -71,12 +71,12 @@
 #### 前缀命令 flag
 
 ```
-//plan-lock --channel=#公告 --lock-time=22-00 --unlock-time=08-00 --cycle=daily
+//lock plan --channel=#公告 --lock-time=22-00 --unlock-time=08-00 --cycle=daily
 ```
 
 支持 flag：`--channel` `--lock-day` `--lock-time` `--unlock-day` `--unlock-time` `--cycle` `--cycle-start` `--cycle-end`。
 
-### `unplan-lock` — 取消计划
+### `/lock unplan` — 取消计划
 
 取消一条已有的计划锁定。
 

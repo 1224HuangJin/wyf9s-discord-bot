@@ -3,7 +3,7 @@
 基于 `on_message` 事件的频道级反垃圾模块，**无指令**。为指定频道配置捕获规则，自动对触发者执行踢出 / 封禁 / 超时，并可清理其近期消息、公开通知、写入审计日志。
 
 - **配置键**：`antispam`
-- **源文件**：`modules/antispam.py`（复用 `clear_message.py` 的清理能力）
+- **源文件**：`cogs/antispam.py`（复用 `modules/clear_message.py` 的清理能力）
 
 ## 判定流程
 

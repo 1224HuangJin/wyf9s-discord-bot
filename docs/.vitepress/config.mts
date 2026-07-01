@@ -57,6 +57,8 @@ export default defineConfig({
             { text: '表情 (emoji)', link: '/modules/emoji' },
             { text: '频道锁定 (lock)', link: '/modules/lock' },
             { text: '语音频道 (voice)', link: '/modules/voice' },
+            { text: '管理指令 (admin)', link: '/modules/admin' },
+            { text: '动态权限 (perm)', link: '/modules/perm' },
           ],
         },
         {
