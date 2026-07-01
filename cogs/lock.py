@@ -175,7 +175,7 @@ class LockCog(commands.Cog):
 
     lock_group = app_commands.Group(name="lock", description="Channel lock commands")
 
-    @lock_group.command(name="now", description="Lock a channel now")
+    @lock_group.command(name="now", description="[MOD] Lock a channel now")
     @app_commands.describe(channel="Channel to lock (default: current)")
     @u.requires(u.Permission.MOD, perm_module="lock")
     async def slash_lock(
@@ -188,7 +188,7 @@ class LockCog(commands.Cog):
     ):
         await self._handle_lock(interaction, channel)
 
-    @lock_group.command(name="unlock", description="Unlock a channel now")
+    @lock_group.command(name="unlock", description="[MOD] Unlock a channel now")
     @app_commands.describe(channel="Channel to unlock (default: current)")
     @u.requires(u.Permission.MOD, perm_module="lock")
     async def slash_unlock(
@@ -201,7 +201,7 @@ class LockCog(commands.Cog):
     ):
         await self._handle_unlock(interaction, channel)
 
-    @lock_group.command(name="plan", description="Schedule a channel lock/unlock")
+    @lock_group.command(name="plan", description="[MOD] Schedule a channel lock/unlock")
     @app_commands.describe(
         channel="Target channel (default: current)",
         lock_day="Lock date (yyyy-mm-dd / mm-dd / dd)",
@@ -250,7 +250,7 @@ class LockCog(commands.Cog):
                 choices.append(app_commands.Choice(name=label[:100], value=i))
         return choices[:25]
 
-    @lock_group.command(name="unplan", description="Cancel a scheduled lock")
+    @lock_group.command(name="unplan", description="[MOD] Cancel a scheduled lock")
     @app_commands.describe(index="Schedule index to cancel")
     @app_commands.autocomplete(index=unplan_autocomplete)
     @u.requires(u.Permission.MOD, perm_module="lock")

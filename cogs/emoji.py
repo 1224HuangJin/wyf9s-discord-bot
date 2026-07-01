@@ -39,8 +39,11 @@ class EmojiCog(commands.Cog):
         name="emoji", description="Emoji management commands"
     )
 
-    @emoji_group.command(name="update", description="Update emoji list from source")
+    @emoji_group.command(
+        name="update", description="[ADMIN] Update emoji list from source"
+    )
     @u.requires(u.Permission.ADMIN, perm_module="emoji")
+    @app_commands.default_permissions(administrator=True)
     async def emoji_update(self, interaction: discord.Interaction):
         await interaction.response.defer()
         succ, err = await self.update_emoji_list()

@@ -106,7 +106,7 @@ class EmojiCog(commands.Cog):
 | [语音频道](/modules/voice) | `voicechannel` | 指令 | 加入 / 离开语音频道 |
 | [管理指令](/modules/admin) | — | 指令 | 指令同步 `/sync`、热重载 `/reload` |
 | [动态权限](/modules/perm) | `perm` | 指令 | `/perm add/rm/show` 权限规则管理 |
-| [公告推送](/modules/announce) | — | 指令 | `/subscribe` `/announce` 公告推送 |
+| [公告推送](/modules/announce) | `announce` | 指令 | `/subscribe` 关注公告频道 |
 | [自动管理](/modules/manage) | `rmmsg` / `rmtodo` | 事件 | 自动删除消息 |
 | [反垃圾](/modules/antispam) | `antispam` | 事件 | 频道级反垃圾规则 |
 | [审计日志](/modules/audit) | `audit` | 服务 | 记录管理操作到指定频道 |

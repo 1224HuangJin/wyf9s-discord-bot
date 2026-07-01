@@ -104,7 +104,7 @@ class ToolsCog(commands.Cog):
             delete_after = self.c.secret_message_delay
         await self._handle_uuid(interaction, delete_after)
 
-    @app_commands.command(name="delete", description="Delete a message by ID")
+    @app_commands.command(name="delete", description="[MOD] Delete a message by ID")
     @app_commands.describe(
         message_id="Message ID", show_to_public="Show result publicly"
     )
@@ -117,7 +117,7 @@ class ToolsCog(commands.Cog):
     ):
         await self._handle_delete(interaction, message_id, show_to_public)
 
-    @app_commands.command(name="clear-message", description="Bulk clear messages")
+    @app_commands.command(name="clear-message", description="[MOD] Bulk clear messages")
     @app_commands.describe(
         user="Target user",
         user_ids="Target user IDs (comma-separated)",
@@ -174,7 +174,7 @@ class ToolsCog(commands.Cog):
         )
         await interaction.followup.send(result, ephemeral=True, view=view)  # ty:ignore[invalid-argument-type]
 
-    @app_commands.command(name="move-channel", description="Move a channel")
+    @app_commands.command(name="move-channel", description="[MOD] Move a channel")
     @app_commands.describe(
         target_channel="Channel to move (default: current)",
         category="Target category",

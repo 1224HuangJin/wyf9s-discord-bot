@@ -38,7 +38,7 @@
 | voice | `joinvc`、`leavevc` |
 | antispam | `antispam-auto-catch`（自动操作，含失败记录） |
 | perm | `perm-add`、`perm-rm` |
-| announce | `subscribe`、`announce` |
+| announce | `subscribe` |
 
 ## 多语言
 

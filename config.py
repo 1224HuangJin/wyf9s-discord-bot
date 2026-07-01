@@ -389,6 +389,20 @@ class _PermConfigModel(BaseModel):
     """是否启用动态权限模块"""
 
 
+class _AnnounceConfigModel(BaseModel):
+    """
+    公告推送模块配置
+    指令: /subscribe
+    """
+
+    source_channel: int | None = None
+    """
+    公告频道 ID (News/Announcement Channel)
+    - /subscribe 会使目标频道关注此频道
+    - 设置为 None 禁用公告功能
+    """
+
+
 class ConfigModel(BaseModel):
     """
     基础配置
@@ -418,6 +432,7 @@ class ConfigModel(BaseModel):
     admins: _PermissionListConfigModel = _PermissionListConfigModel()
     mods: _ScopedPermissionListConfigModel = _ScopedPermissionListConfigModel()
     perm: _PermConfigModel = _PermConfigModel()
+    announce: _AnnounceConfigModel = _AnnounceConfigModel()
 
 
 class Config:

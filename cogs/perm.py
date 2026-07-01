@@ -32,7 +32,7 @@ class PermCog(commands.Cog):
 
     # ========== /perm list ==========
 
-    @app_commands.command(name="perm", description="Manage dynamic permissions")
+    @app_commands.command(name="perm", description="[ADMIN] Manage dynamic permissions")
     @app_commands.describe(
         action="Action: add / rm / show",
         user="User(s): ID or name, comma-separated (required for add)",
@@ -50,6 +50,7 @@ class PermCog(commands.Cog):
             app_commands.Choice(name="show", value="show"),
         ]
     )
+    @app_commands.default_permissions(administrator=True)
     @u.requires(_perm_permission)
     async def perm(
         self,

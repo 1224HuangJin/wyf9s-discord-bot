@@ -35,7 +35,7 @@ class VoiceCog(commands.Cog):
     vc_group = app_commands.Group(name="vc", description="Voice channel control")
 
     @vc_group.command(
-        name="join", description="Join a voice channel (yours or specified)"
+        name="join", description="[MOD] Join a voice channel (yours or specified)"
     )
     @app_commands.describe(channel="Voice channel to join (default: your current)")
     @u.requires(_voice_permission, perm_module="voice")
@@ -46,7 +46,7 @@ class VoiceCog(commands.Cog):
     ):
         await self._handle_joinvc(interaction, channel)
 
-    @vc_group.command(name="leave", description="Leave current voice channel")
+    @vc_group.command(name="leave", description="[MOD] Leave current voice channel")
     @u.requires(_voice_permission, perm_module="voice")
     async def vc_leave(self, interaction: discord.Interaction):
         await self._handle_leavevc(interaction)

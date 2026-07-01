@@ -49,7 +49,7 @@ features:
     link: /modules/perm
   - icon: 📢
     title: 公告推送
-    details: 服务器订阅频道，Admin 全局推送公告，支持文本/文件/消息引用
+    details: Mod 订阅服务器频道关注公告频道，Discord 自动转发消息
     link: /modules/announce
   - icon: 🤖
     title: 自动管理
