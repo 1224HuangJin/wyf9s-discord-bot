@@ -689,6 +689,15 @@ class ToolsModule:
     ):
         user = source.user if isinstance(source, discord.Interaction) else source.author
 
+        if not self._can_use_move_channel(user, source.guild):
+            await u.send_msg(
+                source,
+                ":x: **你没有权限使用此指令** :x:",
+                ephemeral=True,
+                delete_after=10,
+            )
+            return
+
         if not category and not before and not after:
             await u.send_msg(
                 source,
@@ -837,6 +846,11 @@ class ToolsModule:
 
     def _can_use_delete(self, user: discord.User | discord.Member) -> bool:
         return self._is_mod(user)
+
+    def _can_use_move_channel(
+        self, user: discord.User | discord.Member, guild: discord.Guild | None = None
+    ) -> bool:
+        return self._is_mod(user, guild)
 
     async def _deny(self, interaction: discord.Interaction, message: str):
         if interaction.response.is_done():
