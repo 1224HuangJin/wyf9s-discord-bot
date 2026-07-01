@@ -47,6 +47,10 @@ features:
     title: 动态权限
     details: /perm add/rm/show 管理 perm.yaml 动态权限规则，config.yaml 始终优先
     link: /modules/perm
+  - icon: 📢
+    title: 公告推送
+    details: 服务器订阅频道，Admin 全局推送公告，支持文本/文件/消息引用
+    link: /modules/announce
   - icon: 🤖
     title: 自动管理
     details: 按昵称模式自动删消息、自动删除指定频道中 To-Do Bot 的无嵌入消息

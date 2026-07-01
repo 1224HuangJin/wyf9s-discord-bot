@@ -16,6 +16,7 @@
 | 语音频道 | `voicechannel` | 指令 | `/vc join` `/vc leave` | [查看](/modules/voice) |
 | 管理指令 | — | 指令 | `/sync` `/reload` | [查看](/modules/admin) |
 | 动态权限 | `perm` | 指令 | `/perm add` `/perm rm` `/perm show` | [查看](/modules/perm) |
+| 公告推送 | — | 指令 | `/subscribe` `/announce` | [查看](/modules/announce) |
 | 自动管理 | `rmmsg` / `rmtodo` | 事件 | 无 | [查看](/modules/manage) |
 | 反垃圾 | `antispam` | 事件 | 无 | [查看](/modules/antispam) |
 | 审计日志 | `audit` | 服务 | 无 | [查看](/modules/audit) |
@@ -44,6 +45,8 @@
 | `/perm add` | perm | Admin | — | 添加权限规则 |
 | `/perm rm` | perm | Admin | — | 删除权限规则 |
 | `/perm show` | perm | Admin | — | 查看权限规则 |
+| `/subscribe` | announce | Mod | — | 订阅公告通知 |
+| `/announce` | announce | Admin | 60s CD | 发布公告推送 |
 
 > 权限体系详见[权限系统](/guide/permissions)，限速详见[限速与 Rate Limit](/guide/rate-limit)。
 

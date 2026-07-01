@@ -135,6 +135,7 @@ COG_LIST = [
     "cogs.manage",
     "cogs.admin",
     "cogs.perm",
+    "cogs.announce",
 ]
 
 

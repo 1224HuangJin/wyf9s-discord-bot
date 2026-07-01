@@ -15,6 +15,7 @@
 | **审计日志** (`audit`) | 可嵌入审计日志服务，记录操作到指定频道（全局/按服务器） |
 | **管理** (`admin`) | 指令同步 `/sync`、模块热重载 `/reload` |
 | **动态权限** (`perm`) | `/perm add/rm/show` — 动态权限管理，存储于 `perm.yaml`，`config.yaml` 始终优先 |
+| **公告推送** (`announce`) | `/subscribe` 订阅频道 + `/announce` 推送公告 |
 
 ## Cog 架构
 
@@ -57,7 +58,8 @@
 | `/reload [module]` | Admin | 热重载模块 |
 | `/perm add <user> [module\|command]` | Admin | 添加权限规则 |
 | `/perm rm [rid\|user]` | Admin | 删除权限规则 |
-| `/perm show [filters]` | Admin | 查看权限规则 |
+| `/announce <msg\|file\|msgid>` | Admin | 推送公告到订阅频道 |
+| `/subscribe [channel]` | Mod | 订阅当前/指定频道 |
 
 ## 技术栈
 

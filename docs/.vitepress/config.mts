@@ -40,6 +40,8 @@ export default defineConfig({
           { text: 'GitHub 仓库', link: 'https://github.com/wyf9/wyf9s-discord-bot' },
           { text: 'discord.py 文档', link: 'https://discordpy.readthedocs.io/' },
           { text: '联系开发者', link: 'https://wyf9.top/c' },
+          { text: '服务条款', link: '/legal/tos' },
+          { text: '隐私政策', link: '/legal/privacy' },
         ],
       },
     ],
@@ -71,6 +73,7 @@ export default defineConfig({
             { text: '语音频道 (voice)', link: '/modules/voice' },
             { text: '管理指令 (admin)', link: '/modules/admin' },
             { text: '动态权限 (perm)', link: '/modules/perm' },
+            { text: '公告推送 (announce)', link: '/modules/announce' },
           ],
         },
         {
