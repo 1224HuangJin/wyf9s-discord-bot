@@ -34,7 +34,6 @@ class AdminCog(commands.Cog):
 
     @app_commands.command(name="sync", description="[ADMIN] Sync slash command tree")
     @u.requires(u.Permission.ADMIN)
-    @app_commands.default_permissions(administrator=True)
     async def slash_sync(self, interaction: discord.Interaction):
         await interaction.response.defer()
         await self.bot.tree.sync()
@@ -84,7 +83,6 @@ class AdminCog(commands.Cog):
     @app_commands.command(name="reload", description="[ADMIN] Reload a cog module")
     @app_commands.describe(module="Cog name to reload (empty to list)")
     @u.requires(u.Permission.ADMIN)
-    @app_commands.default_permissions(administrator=True)
     async def slash_reload(
         self, interaction: discord.Interaction, module: str | None = None
     ):
