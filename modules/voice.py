@@ -9,6 +9,22 @@ from modules.audit import AuditLogger
 import utils as u
 
 
+def _voice_permission(
+    module: "VoiceChannelModule",
+    user: discord.User | discord.Member,
+    guild: discord.Guild | None,
+) -> bool:
+    """
+    语音指令权限判定:
+    - 未配置白名单 (allowed_user_ids 为空): 仅 mod 可用
+    - 已配置白名单: 白名单用户 或 mod 均可用
+    """
+    allowed = module.c.voicechannel.allowed_user_ids
+    if user.id in allowed or user.name in allowed:
+        return True
+    return u.is_mod(user, module.c, guild)
+
+
 class VoiceChannelModule:
     """
     语音频道控制模块
@@ -63,17 +79,9 @@ class VoiceChannelModule:
 
     # ========== Shared Logic ==========
 
+    @u.requires(_voice_permission)
     async def _handle_joinvc(self, source, channel: discord.VoiceChannel | None = None):
         user = source.user if isinstance(source, discord.Interaction) else source.author
-
-        if not self._check_user_allowed(user):
-            await u.send_msg(
-                source,
-                f"你没有权限使用此命令 *(UserID: `{user.id}`, UserName: `{user.name}`)*",
-                ephemeral=True,
-                delete_after=10,
-            )
-            return
 
         if channel is None and isinstance(user, discord.Member):
             if (
@@ -151,14 +159,9 @@ class VoiceChannelModule:
             )
             l.error(f"Unexpected error in joinvc: {type(e).__name__}: {e}")
 
+    @u.requires(_voice_permission)
     async def _handle_leavevc(self, source):
         user = source.user if isinstance(source, discord.Interaction) else source.author
-
-        if not self._check_user_allowed(user):
-            await u.send_msg(
-                source, "你没有权限使用此命令", ephemeral=True, delete_after=10
-            )
-            return
 
         guild = source.guild
         if not guild or not guild.voice_client:
@@ -192,18 +195,3 @@ class VoiceChannelModule:
                 channel=source.channel,
                 detail=f"离开语音频道 `{channel_name}`",
             )
-
-    def _check_user_allowed(self, user: discord.User | discord.Member) -> bool:
-        """
-        检查用户是否被允许使用此功能
-
-        如果 allowed_user_ids 为空，则所有人都被允许
-        如果 allowed_user_ids 不为空，则只有列表中的用户被允许
-        """
-        return any(
-            (
-                not self.c.voicechannel.allowed_user_ids,  # whitelist not set
-                user.id in self.c.voicechannel.allowed_user_ids,  # user id match
-                user.name in self.c.voicechannel.allowed_user_ids,  # username match
-            )
-        )

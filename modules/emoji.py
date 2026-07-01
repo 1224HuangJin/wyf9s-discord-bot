@@ -81,6 +81,7 @@ class EmojiModule:
 
     # ========== Shared Logic ==========
 
+    @u.requires(u.Permission.ADMIN)
     async def _handle_emoji_update(self, source):
         user = source.user if isinstance(source, discord.Interaction) else source.author
 

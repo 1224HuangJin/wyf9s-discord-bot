@@ -138,8 +138,9 @@ class _VoiceChannelConfigModel(BaseModel):
 
     allowed_user_ids: list[int | str] = []
     """
-    允许使用 join/leave vc 命令的用户 ID 列表
-    - 留空则所有人可用
+    允许使用 join/leave vc 命令的用户 ID / 用户名列表 (白名单)
+    - 留空: 仅 mod (含 admin) 可用
+    - 非空: 白名单用户 或 mod 均可用
     """
 
 
@@ -236,6 +237,42 @@ class _ScopedPermissionListConfigModel(BaseModel):
     """按服务器配置的允许列表，key 为 guild id，可写数字或字符串"""
 
 
+class _ToolsRateLimitConfigModel(BaseModel):
+    """
+    工具模块限速配置 (仅作用于 random / uuid / 2file)
+    - admin (服务器管理员 / 配置 admin) 不受限速
+    - mod 的额度为普通用户的 mod_multiplier 倍
+    """
+
+    model_config = ConfigDict(populate_by_name=True)
+
+    enabled: bool = True
+    """是否启用限速"""
+
+    window: int = 60
+    """时间窗口 (秒)"""
+
+    mod_multiplier: int = 3
+    """mod 的额度倍数 (相对普通用户)"""
+
+    random: int = 10
+    """random 指令: 窗口内普通用户最大次数"""
+
+    uuid: int = 10
+    """uuid 指令: 窗口内普通用户最大次数"""
+
+    twofile: int = Field(default=10, alias="2file")
+    """2file 指令: 窗口内普通用户最大次数"""
+
+    def limit_for(self, command: str) -> int | None:
+        """获取指定指令的基础限速额度, 未配置则返回 None (不限速)"""
+        return {
+            "random": self.random,
+            "uuid": self.uuid,
+            "2file": self.twofile,
+        }.get(command)
+
+
 class _ToolsConfigModel(BaseModel):
     """
     工具/管理指令模块配置
@@ -250,6 +287,9 @@ class _ToolsConfigModel(BaseModel):
 
     prefix: bool = True
     """是否注册前缀指令"""
+
+    ratelimit: _ToolsRateLimitConfigModel = _ToolsRateLimitConfigModel()
+    """限速配置 (random / uuid / 2file)"""
 
 
 class _LockConfigModel(BaseModel):
@@ -290,9 +330,7 @@ class _SpamCatcherRuleConfigModel(BaseModel):
     )
     """被视为陌生账号的角色列表 (支持身份组 ID 或名称)"""
 
-    ignored_roles: list[int | str] = Field(
-        default_factory=list, alias="ignored-roles"
-    )
+    ignored_roles: list[int | str] = Field(default_factory=list, alias="ignored-roles")
     """忽略处理的角色列表, 拥有任一角色的成员不会被处理 (支持身份组 ID 或名称)"""
 
     @field_validator("clear_message", mode="before")

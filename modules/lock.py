@@ -384,17 +384,9 @@ class LockModule:
 
     # ========== Shared Logic ==========
 
+    @u.requires(u.Permission.MOD)
     async def _handle_lock(self, source, channel=None):
         user = source.user if isinstance(source, discord.Interaction) else source.author
-
-        if not self._can_use_lock(user, source.guild):
-            await u.send_msg(
-                source,
-                ":x: **你没有权限使用此指令** :x:",
-                ephemeral=True,
-                delete_after=10,
-            )
-            return
 
         target = channel or source.channel
         if not isinstance(
@@ -454,17 +446,9 @@ class LockModule:
                 source, f":x: **锁定失败: `{e}`** :x:", ephemeral=True, delete_after=10
             )
 
+    @u.requires(u.Permission.MOD)
     async def _handle_unlock(self, source, channel=None):
         user = source.user if isinstance(source, discord.Interaction) else source.author
-
-        if not self._can_use_lock(user, source.guild):
-            await u.send_msg(
-                source,
-                ":x: **你没有权限使用此指令** :x:",
-                ephemeral=True,
-                delete_after=10,
-            )
-            return
 
         target = channel or source.channel
         if not isinstance(
@@ -524,6 +508,7 @@ class LockModule:
                 source, f":x: **解锁失败: `{e}`** :x:", ephemeral=True, delete_after=10
             )
 
+    @u.requires(u.Permission.MOD)
     async def _handle_plan_lock(
         self,
         source,
@@ -537,15 +522,6 @@ class LockModule:
         cycle_end: str | None,
     ):
         user = source.user if isinstance(source, discord.Interaction) else source.author
-
-        if not self._can_use_lock(user, source.guild):
-            await u.send_msg(
-                source,
-                ":x: **你没有权限使用此指令** :x:",
-                ephemeral=True,
-                delete_after=10,
-            )
-            return
 
         target = channel or source.channel
         if not isinstance(
@@ -624,17 +600,9 @@ class LockModule:
                 detail=f"计划操作: {' / '.join(parts)}",
             )
 
+    @u.requires(u.Permission.MOD)
     async def _handle_unplan_lock(self, source, index: int):
         user = source.user if isinstance(source, discord.Interaction) else source.author
-
-        if not self._can_use_lock(user, source.guild):
-            await u.send_msg(
-                source,
-                ":x: **你没有权限使用此指令** :x:",
-                ephemeral=True,
-                delete_after=10,
-            )
-            return
 
         if not self.store.schedules:
             await u.send_msg(
@@ -815,37 +783,3 @@ class LockModule:
     @_check_schedules.before_loop
     async def _before_check(self):
         await self.client.wait_until_ready()
-
-    # ========== Permission Helpers ==========
-
-    def _matches_identity(
-        self, user: discord.User | discord.Member, values: list[int | str]
-    ) -> bool:
-        for value in values:
-            if user.id == value or user.name == value:
-                return True
-            if isinstance(value, str) and value.isdigit() and user.id == int(value):
-                return True
-        return False
-
-    def _is_mod(
-        self, user: discord.User | discord.Member, guild: discord.Guild | None = None
-    ) -> bool:
-        if isinstance(user, discord.Member) and user.guild_permissions.administrator:
-            return True
-        if self._matches_identity(user, self.c.admins.users):
-            return True
-        if isinstance(user, discord.Member):
-            if self._matches_identity(user, self.c.mods.users):
-                return True
-            if guild is not None:
-                guild_users = self.c.mods.guilds.get(
-                    guild.id, self.c.mods.guilds.get(str(guild.id), [])
-                )
-                return self._matches_identity(user, guild_users)
-        return False
-
-    def _can_use_lock(
-        self, user: discord.User | discord.Member, guild: discord.Guild | None = None
-    ) -> bool:
-        return self._is_mod(user, guild)

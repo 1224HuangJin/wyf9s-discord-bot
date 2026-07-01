@@ -33,7 +33,7 @@ class ClearMessageResultView(discord.ui.View):
 
     @discord.ui.button(label="OK", style=discord.ButtonStyle.secondary)
     async def btn_ok(self, interaction: discord.Interaction, button: discord.ui.Button):
-        if not self.tools._can_use_clear_message(interaction.user, self.guild):
+        if not u.is_mod(interaction.user, self.tools.c, self.guild):
             await interaction.response.send_message(
                 ":x: **你没有权限使用此指令** :x:", ephemeral=True
             )
@@ -102,6 +102,7 @@ class ToolsModule:
         self.c = config
         self.client = client
         self.audit = audit
+        self.rate_limiter = u.RateLimiter()
         self.clear_message = ClearMessageService(
             config=config, client=client, audit=audit
         )
@@ -225,7 +226,7 @@ class ToolsModule:
 
         @client.tree.command(name="sync", description="同步指令列表")
         async def sync(interaction: discord.Interaction):
-            if not self._is_config_admin(interaction.user):
+            if not u.is_config_admin(interaction.user, self.c):
                 await self._deny(interaction, ":x: **你没有权限使用此指令** :x:")
                 return
 
@@ -373,7 +374,7 @@ class ToolsModule:
                 message_count=message_count,
                 within_minutes=within_minutes,
                 scope=scope,
-                channel=channel,  # type: ignore[arg-type]  # ty:ignore[invalid-argument-type]
+                channel=channel,  # type: ignore[arg-type]
                 start=start,
                 end=end,
             )
@@ -394,7 +395,7 @@ class ToolsModule:
 
         @client.command(name="sync")
         async def prefix_sync(ctx: commands.Context):
-            if not self._is_config_admin(ctx.author):
+            if not u.is_config_admin(ctx.author, self.c):
                 await ctx.send("**:x: 你没有权限使用此指令**", delete_after=10)
                 return
 
@@ -414,7 +415,7 @@ class ToolsModule:
 
         @client.command(name="sync-commands")
         async def sync_commands(ctx: commands.Context):
-            if not self._is_config_admin(ctx.author):
+            if not u.is_config_admin(ctx.author, self.c):
                 await ctx.send("**:x: 你没有权限使用此指令**", delete_after=10)
                 return
 
@@ -439,6 +440,8 @@ class ToolsModule:
     # ========== Shared Logic ==========
 
     async def _handle_random(self, source, min_num: int = 1, max_num: int = 114514):
+        if not await self._check_rate_limit(source, "random"):
+            return
         try:
             if min_num > max_num:
                 min_num, max_num = max_num, min_num
@@ -453,6 +456,8 @@ class ToolsModule:
             )
 
     async def _handle_uuid(self, source, delete_after: int):
+        if not await self._check_rate_limit(source, "uuid"):
+            return
         now = int(datetime.now().timestamp())
         await u.send_msg(
             source,
@@ -462,6 +467,8 @@ class ToolsModule:
         )
 
     async def _handle_2file(self, source, name: str, content: str):
+        if not await self._check_rate_limit(source, "2file"):
+            return
         bio = io.BytesIO(content.encode("utf-8"))
         await u.send_msg(
             source,
@@ -479,19 +486,11 @@ class ToolsModule:
                 detail=f"发送文件: `{name}`",
             )
 
+    @u.requires(u.Permission.MOD)
     async def _handle_delete(
         self, source, message_id: str, show_to_public: bool = False
     ):
         user = source.user if isinstance(source, discord.Interaction) else source.author
-
-        if not self._can_use_delete(user):
-            await u.send_msg(
-                source,
-                ":x: **你没有权限使用此指令** :x:",
-                ephemeral=True,
-                delete_after=10,
-            )
-            return
 
         if not message_id:
             await u.send_msg(
@@ -550,6 +549,7 @@ class ToolsModule:
                     detail=f"删除消息 ID `{message_id}`",
                 )
 
+    @u.requires(u.Permission.MOD)
     async def _handle_clear_message(
         self,
         interaction: discord.Interaction,
@@ -565,10 +565,6 @@ class ToolsModule:
         start: str | None = None,
         end: str | None = None,
     ):
-        if not self._can_use_clear_message(interaction.user, interaction.guild):
-            await self._deny(interaction, ":x: **你没有权限使用此指令** :x:")
-            return
-
         await interaction.response.defer()
 
         result = await self._do_clear_message(
@@ -595,6 +591,10 @@ class ToolsModule:
         )
         await u.send_msg(interaction, result, ephemeral=True, view=view)
 
+    @u.requires(
+        u.Permission.MOD,
+        deny=f":x: **你没有权限使用此指令** :x:\n-# {CLEAR_MESSAGE_MARKER}",
+    )
     async def _handle_clear_message_prefix(
         self,
         ctx: commands.Context,
@@ -610,13 +610,6 @@ class ToolsModule:
         start: str | None = None,
         end: str | None = None,
     ):
-        if not self._can_use_clear_message(ctx.author, ctx.guild):
-            await ctx.send(
-                self._mark_clear_message(":x: **你没有权限使用此指令** :x:"),
-                delete_after=10,
-            )
-            return
-
         await ctx.defer()
 
         result = await self._do_clear_message(
@@ -678,6 +671,7 @@ class ToolsModule:
             end=end,
         )
 
+    @u.requires(u.Permission.MOD)
     async def _handle_move_channel(
         self,
         source,
@@ -688,15 +682,6 @@ class ToolsModule:
         sync_perm: bool = True,
     ):
         user = source.user if isinstance(source, discord.Interaction) else source.author
-
-        if not self._can_use_move_channel(user, source.guild):
-            await u.send_msg(
-                source,
-                ":x: **你没有权限使用此指令** :x:",
-                ephemeral=True,
-                delete_after=10,
-            )
-            return
 
         if not category and not before and not after:
             await u.send_msg(
@@ -798,44 +783,43 @@ class ToolsModule:
 
     # ========== Permission Helpers ==========
 
-    def _matches_identity(
-        self, user: discord.User | discord.Member, values: list[int | str]
-    ) -> bool:
-        for value in values:
-            if user.id == value or user.name == value:
-                return True
-            if isinstance(value, str) and value.isdigit() and user.id == int(value):
-                return True
-        return False
+    async def _check_rate_limit(self, source, command: str) -> bool:
+        """
+        限速判定 (random / uuid / 2file)
 
-    def _is_server_admin(self, user: discord.User | discord.Member) -> bool:
-        return isinstance(user, discord.Member) and user.guild_permissions.administrator
-
-    def _is_config_admin(self, user: discord.User | discord.Member) -> bool:
-        return self._matches_identity(user, self.c.admins.users)
-
-    def _is_mod(
-        self, user: discord.User | discord.Member, guild: discord.Guild | None = None
-    ) -> bool:
-        if self._is_server_admin(user) or self._is_config_admin(user):
+        - admin 不受限速
+        - mod 的额度为普通用户的 mod_multiplier 倍
+        - 未通过时回复提示并返回 False
+        """
+        rl = self.c.tools.ratelimit
+        if not rl.enabled:
             return True
 
-        if isinstance(user, discord.Member):
-            if self._matches_identity(user, self.c.mods.users):
-                return True
+        user = source.user if isinstance(source, discord.Interaction) else source.author
 
-            if guild is not None:
-                guild_users = self.c.mods.guilds.get(
-                    guild.id, self.c.mods.guilds.get(str(guild.id), [])
-                )
-                return self._matches_identity(user, guild_users)
+        # admin 始终不受限速
+        if u.is_admin(user, self.c):
+            return True
 
-        return False
+        base = rl.limit_for(command)
+        if base is None:
+            return True
 
-    def _can_use_clear_message(
-        self, user: discord.User | discord.Member, guild: discord.Guild | None = None
-    ) -> bool:
-        return self._is_mod(user, guild)
+        guild = getattr(source, "guild", None)
+        limit = base * rl.mod_multiplier if u.is_mod(user, self.c, guild) else base
+
+        allowed, retry_after = self.rate_limiter.hit(
+            (command, user.id), limit, rl.window
+        )
+        if not allowed:
+            await u.send_msg(
+                source,
+                f":hourglass_flowing_sand: **操作过于频繁, 请在 `{retry_after:.0f}s` 后重试**",
+                ephemeral=True,
+                delete_after=10,
+            )
+            return False
+        return True
 
     @staticmethod
     def _mark_clear_message(text: str) -> str:
@@ -843,14 +827,6 @@ class ToolsModule:
         if CLEAR_MESSAGE_MARKER in text:
             return text
         return f"{text}\n-# {CLEAR_MESSAGE_MARKER}"
-
-    def _can_use_delete(self, user: discord.User | discord.Member) -> bool:
-        return self._is_mod(user)
-
-    def _can_use_move_channel(
-        self, user: discord.User | discord.Member, guild: discord.Guild | None = None
-    ) -> bool:
-        return self._is_mod(user, guild)
 
     async def _deny(self, interaction: discord.Interaction, message: str):
         if interaction.response.is_done():
