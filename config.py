@@ -194,59 +194,43 @@ class _VoiceChannelConfigModel(BaseModel):
     """
 
 
-AuditLang = t.Literal["zh", "en"]
-"""审计日志语言: zh (默认) / en"""
-
-
 class _AuditGuildConfigModel(BaseModel):
-    """
-    按服务器的审计日志配置
-    """
+    """Per-server audit log config"""
 
     model_config = ConfigDict(populate_by_name=True)
 
     channel: int
-    """日志目标频道 ID"""
-
-    lang: AuditLang = "zh"
-    """日志语言: zh (默认) / en"""
+    """Log target channel ID"""
 
     @field_validator("channel", mode="before")
     def normalize_channel(cls, v):
-        # 兼容直接写频道 ID (str/int) 的情况
         if isinstance(v, str) and v.isdigit():
             return int(v)
         return v
 
 
 class _AuditLogConfigModel(BaseModel):
-    """
-    管理员操作执行日志配置
-    `audit` (无指令, 服务模块)
-    """
+    """Admin action execution log config (no commands, service module)"""
 
     model_config = ConfigDict(populate_by_name=True)
 
     enabled: bool = False
-    """是否启用执行日志"""
+    """Whether audit logging is enabled"""
 
     global_channel: int | None = None
     """
-    全局日志频道 ID
-    - 所有服务器的管理操作都会发送到这里
-    - 设置为 None 以禁用全局日志
+    Global log channel ID
+    - All server admin actions will be sent here
+    - Set to None to disable global logging
     """
-
-    global_lang: AuditLang = "zh"
-    """全局日志语言: zh (默认) / en"""
 
     guilds: dict[int | str, _AuditGuildConfigModel] = {}
     """
-    按服务器单独配置的日志频道
-    - key 为 guild id (可写数字或字符串)
-    - value 可写:
-      - 频道 ID (数字), 语言默认 zh
-      - 或 { channel: 频道ID, lang: zh/en }
+    Per-server log channel config
+    - key is guild id (can be int or str)
+    - value can be:
+      - channel ID (int), or
+      - { channel: channel_id }
     - 与全局日志互不影响: 若两者都配置, 则两个频道都会收到日志
     """
 

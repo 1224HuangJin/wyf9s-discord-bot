@@ -1,0 +1,42 @@
+# English (en) language strings
+
+audit:
+  title_manual_ok: "Action Log"
+  title_manual_fail: "Action Log"
+  title_auto_ok: "Automated Action Log"
+  title_auto_fail: "Automated Action Failed"
+  field_action: "Action"
+  field_actor: "Actor"
+  field_guild: "Server"
+  field_channel: "Channel"
+  field_detail: "Detail"
+
+antispam:
+  snapshot_title: "Message Snapshot"
+  snapshot_content_empty: "(no text content)"
+  snapshot_field_channel: "Channel"
+  snapshot_field_attachments: "Attachments"
+  snapshot_field_no_attachments: "(no attachments)"
+  snapshot_button_unban: "Unban"
+  snapshot_button_unmute: "Unmute"
+  category_spammer: "Spammer"
+  category_hacked: "Hacked"
+  action_kick: "Kick"
+  action_ban: "Ban"
+  action_mute: "Mute {minutes}min"
+  snapshot_button_executed: "{action} executed on {user}"
+  snapshot_button_no_permission: "You don't have permission"
+  snapshot_button_failed: "Failed: {error}"
+  unban_reason: "AntiSpam false positive, manually unbanned by {actor}"
+  unmute_reason: "AntiSpam false positive, manually unmuted by {actor}"
+
+lang:
+  command_description: "Set language preference"
+  param_lang_description: "Language (zh / en)"
+  param_scope_description: "Scope: user (default) / server"
+  set_user: "Your language preference has been set to {lang}"
+  set_server: "Server language preference has been set to {lang}"
+  show_user: "Your language preference: {lang}"
+  show_server: "Server language preference: {lang}"
+  not_server: "Server scope can only be used in a server"
+  server_no_permission: "You don't have permission to manage this server"

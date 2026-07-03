@@ -1,0 +1,42 @@
+# Chinese (zh) language strings
+
+audit:
+  title_manual_ok: "操作日志"
+  title_manual_fail: "操作日志"
+  title_auto_ok: "自动化操作日志"
+  title_auto_fail: "自动化操作失败"
+  field_action: "操作"
+  field_actor: "执行者"
+  field_guild: "服务器"
+  field_channel: "频道"
+  field_detail: "详情"
+
+antispam:
+  snapshot_title: "消息快照"
+  snapshot_content_empty: "(无文本内容)"
+  snapshot_field_channel: "频道"
+  snapshot_field_attachments: "附件"
+  snapshot_field_no_attachments: "(无附件)"
+  snapshot_button_unban: "取消封禁"
+  snapshot_button_unmute: "解除禁言"
+  category_spammer: "垃圾账号"
+  category_hacked: "被盗号"
+  action_kick: "踢出"
+  action_ban: "封禁"
+  action_mute: "禁言 {minutes} 分钟"
+  snapshot_button_executed: "{action} 已对 {user} 执行"
+  snapshot_button_no_permission: "你没有权限"
+  snapshot_button_failed: "执行失败: {error}"
+  unban_reason: "AntiSpam 误判, 由 {actor} 手动取消封禁"
+  unmute_reason: "AntiSpam 误判, 由 {actor} 手动解除禁言"
+
+lang:
+  command_description: "设置语言偏好"
+  param_lang_description: "语言 (zh / en)"
+  param_scope_description: "范围: user (默认) / server"
+  set_user: "你的语言偏好已设置为 {lang}"
+  set_server: "本服务器的语言偏好已设置为 {lang}"
+  show_user: "你的语言偏好: {lang}"
+  show_server: "本服务器的语言偏好: {lang}"
+  not_server: "server scope 仅可在服务器内使用"
+  server_no_permission: "你没有管理此服务器的权限"

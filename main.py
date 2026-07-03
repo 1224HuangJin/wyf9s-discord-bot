@@ -53,6 +53,7 @@ import utils as u  # noqa: E402
 
 from modules.audit import AuditLogger  # noqa: E402
 from perm import PermStore  # noqa: E402
+from lang_store import LangStore  # noqa: E402
 
 # endregion import
 
@@ -113,8 +114,10 @@ client = commands.Bot(command_prefix=c.command_prefix, intents=intents, proxy=c.
 # Store config and shared state on bot instance
 client.config = c  # ty:ignore[unresolved-attribute]
 
+client.lang_store = LangStore()  # ty:ignore[unresolved-attribute]
+
 if c.audit.enabled:
-    client.audit = AuditLogger(config=c, client=client)  # ty:ignore[unresolved-attribute]
+    client.audit = AuditLogger(config=c, client=client, lang_store=client.lang_store)  # ty:ignore[unresolved-attribute]
 else:
     client.audit = None  # ty:ignore[unresolved-attribute]
 
@@ -136,6 +139,7 @@ COG_LIST = [
     "cogs.admin",
     "cogs.perm",
     "cogs.announce",
+    "cogs.lang",
 ]
 
 

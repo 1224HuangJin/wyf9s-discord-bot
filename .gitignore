@@ -1,6 +1,7 @@
 # Config file
 *.yaml
 !*.example.yaml
+!lang/**/*.yaml
 
 # ========== Generated ==========
 
