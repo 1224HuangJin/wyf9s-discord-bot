@@ -175,6 +175,7 @@ class AntiSpamCog(commands.Cog):
         trigger_channel: discord.TextChannel,
         target: discord.Member,
         rule: _SpamCatcherRuleConfigModel,
+        trigger_message: discord.Message,
     ) -> tuple[bool, str, str, bool]:
         is_spammer = self._is_spammer(target, rule)
         category = "spammer" if is_spammer else "hacked"
@@ -235,7 +236,6 @@ class AntiSpamCog(commands.Cog):
 
         if self.audit:
             detail_lines = [
-                f"Target: {target} ({target.id})",
                 f"Category: {category}",
                 f"Action: {action_label}",
                 f"Cleanup mins: {rule.clear_message}",
@@ -243,14 +243,15 @@ class AntiSpamCog(commands.Cog):
             if clear_result:
                 quoted = "> " + clear_result[:900].replace("\n", "\n> ")
                 detail_lines.append(f"Cleanup:\n{quoted}")
-            await self.audit.log(
-                action="antispam-auto-catch",
+            await self.audit.log_antispam_with_snapshot(
                 user=target,
                 guild=guild,
                 channel=trigger_channel,
                 detail="\n".join(detail_lines),
                 success=True,
-                auto=True,
+                trigger_message=trigger_message,
+                category=category,
+                action_label=action_label,
             )
 
         return True, category, action_label, should_ping
@@ -303,6 +304,7 @@ class AntiSpamCog(commands.Cog):
             trigger_channel=t.cast(discord.TextChannel, message.channel),
             target=message.author,
             rule=rule,
+            trigger_message=message,
         )
         if not ok:
             l.warning(f"[antispam] Failed: target={message.author} category={category}")

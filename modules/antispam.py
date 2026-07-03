@@ -191,6 +191,7 @@ class AntiSpamModule:
         trigger_channel: discord.TextChannel,
         target: discord.Member,
         rule: _SpamCatcherRuleConfigModel,
+        trigger_message: discord.Message,
     ) -> tuple[bool, str, str, bool]:
         is_spammer = self._is_spammer(target, rule)
         category = "spammer" if is_spammer else "hacked"
@@ -257,20 +258,22 @@ class AntiSpamModule:
         )
 
         if self.audit:
-            await self.audit.log(
-                action="antispam-auto-catch",
-                user=actor,
+            detail_lines = [
+                f"分类: {category}",
+                f"动作: {action_label}",
+                f"清理分钟: {rule.clear_message}",
+            ]
+            if clear_result:
+                detail_lines.append(f"清理结果: {clear_result[:900]}")
+            await self.audit.log_antispam_with_snapshot(
+                user=target,
                 guild=guild,
                 channel=trigger_channel,
-                detail=(
-                    f"目标: {target} ({target.id})"
-                    f"\n分类: {category}"
-                    f"\n动作: {action_label}"
-                    f"\n清理分钟: {rule.clear_message}"
-                    + (f"\n清理结果: {clear_result[:900]}" if clear_result else "")
-                ),
+                detail="\n".join(detail_lines),
                 success=True,
-                auto=True,
+                trigger_message=trigger_message,
+                category=category,
+                action_label=action_label,
             )
 
         return True, category, action_label, should_ping
@@ -328,6 +331,7 @@ class AntiSpamModule:
             trigger_channel=t.cast(discord.TextChannel, message.channel),
             target=message.author,
             rule=rule,
+            trigger_message=message,
         )
         if not ok:
             l.warning(
