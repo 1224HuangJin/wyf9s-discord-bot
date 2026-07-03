@@ -128,10 +128,20 @@ All user-facing text must be localized. Never hardcode display strings.
 - `docs/` — VitePress site (guides + per-module pages); keep command tables and the i18n guide in sync
 - `AGENTS.md` — developer/agent instructions only (keep non-overlapping with README)
 
-## Error Handling
+## Logging & Audit
 
-- All slash command errors are caught by `client.tree.error` in `main.py`, which logs full tracebacks and sends to the global audit channel.
+- `AuditLogger.log(...)` routes to one of two independent channel categories via
+  `category=`: `"action"` (default — normal command operations) or `"audit"`
+  (automated moderation & errors). A category with no configured channel (global
+  or per-guild) is simply not sent. Config: `audit.global_action` /
+  `audit.global_audit` + per-guild `{action, audit}` (legacy `global_channel` /
+  bare channel id → `audit`).
+- All slash command errors are caught by `client.tree.error` in `main.py`, which
+  logs full tracebacks and sends to the **audit** category (`category="audit"`).
 - Batch operations (e.g. `clear-message`, `announce`, `antispam-auto-catch`) should **not** log individual per-item failures to audit—log one summary at the end. Use `l.warning()` for per-item debug logging to avoid flooding audit channels.
 - If audit logging itself fails (e.g. channel not found, Forbidden), catch and silently ignore.
+- stdlib logging (incl. discord.py) is funneled to loguru via a single
+  `InterceptHandler` on the root logger; discord.py verbosity is set separately
+  via `log.discord_level` (default `INFO`) to avoid gateway spam at app DEBUG.
 
 @README.md

@@ -12,8 +12,8 @@
 | **语音频道** (`voice`) | 机器人加入/离开语音频道，支持 DAVE 加密 |
 | **自动管理** (`manage`) | 按昵称模式自动删消息、自动删除指定频道中特定 bot 的无嵌入消息 |
 | **反垃圾** (`antispam`) | 频道级反垃圾规则：陌生人踢/ban、普通用户超时/踢/ban、自动清理消息、审计日志 |
-| **审计日志** (`audit`) | 可嵌入审计日志服务，记录操作到指定频道（全局/按服务器） |
-| **管理** (`admin`) | 指令同步 `/sync`、模块热重载 `/reload` |
+| **操作/审计日志** (`audit`) | 可嵌入日志服务，分 **action**（普通指令）/ **audit**（自动处置/错误）两类频道，全局/按服务器独立配置 |
+| **管理** (`admin`) | 指令同步 `/sync`、模块/配置热重载 `/reload`（留空重载全部、`config` 重载配置） |
 | **动态权限** (`perm`) | `/perm add/rm/show` — 动态权限管理，存储于 `perm.yaml`，`config.yaml` 始终优先 |
 | **公告推送** (`announce`) | `/subscribe` 关注公告频道 |
 | **多语言** (`lang`) | `/lang` 切换用户 / 服务器语言（`zh` / `en`），偏好持久化到 `lang_settings.yaml` |
@@ -29,7 +29,7 @@
 
 所有命令模块使用 discord.py **Cog** 架构：
 
-- **热重载**：`/reload [module]` 可热更新单个模块（支持自动补全），有 15s 冷却防滥用
+- **热重载**：`/reload [module]` 可热更新模块（动态自动补全，1s 缓存）；留空重载全部、`config` 重载配置，有 15s 冷却防滥用
 - **状态保持**：语音连接 (voice_client)、emoji 缓存、限速数据、计划锁定数据等存储在 bot 实例上，重载 Cog 不会丢失
 - **子命令分组**：相关指令使用 Group 组织（如 `/emoji update`、`/lock plan`）
 - **权限集成**：Cog 层统一权限检查，支持 `config.yaml` + `perm.yaml` 双层权限
@@ -63,7 +63,7 @@
 | `/vc join [channel]` | Mod/白名单 | 加入语音 |
 | `/vc leave` | Mod/白名单 | 离开语音 |
 | `/sync` | Config Admin | 同步斜杠指令 |
-| `/reload [module]` | Admin | 热重载模块 |
+| `/reload [module]` | Admin | 热重载模块（留空全部 / `config` 重载配置） |
 | `/perm add <user> [module\|command]` | Admin | 添加权限规则 |
 | `/perm rm [rid\|user]` | Admin | 删除权限规则 |
 | `/subscribe [channel]` | Mod | 关注公告频道 |

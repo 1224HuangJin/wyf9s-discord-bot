@@ -36,7 +36,7 @@ antispam:
   action_kick: "踢出"
   action_ban: "封禁"
   action_mute: "禁言 {minutes} 分钟"
-  snapshot_button_executed: "{action} 已对 {user} 执行"
+  snapshot_button_done: "已由 {actor} {action}"
   snapshot_button_no_permission: "你没有权限"
   snapshot_button_failed: "执行失败: {error}"
   unban_reason: "AntiSpam 误判, 由 {actor} 手动取消封禁"
@@ -64,15 +64,18 @@ lang:
 
 admin:
   cmd_sync_desc: "[ADMIN] 同步斜杠命令树"
-  cmd_reload_desc: "[ADMIN] 重载一个 Cog 模块"
-  param_reload_module: "要重载的 Cog 名称 (留空则列出)"
+  cmd_reload_desc: "[ADMIN] 重载模块 (留空重载全部; config 重载配置)"
+  param_reload_module: "要重载的目标 (留空重载全部; config 重载配置)"
   synced: "**:white_check_mark: 斜杠命令已同步**"
   reload_cooldown: ":hourglass: **冷却中: 请 `{remaining}s` 后再重载**"
   reload_cooldown_short: ":hourglass: **冷却中: 请等待 `{remaining}s`**"
-  available_cogs: "**可用 Cog** (`{count}`):"
   cog_not_found: ":x: **未找到 Cog `{module}`**"
   reloaded: ":white_check_mark: **已重载 `{module}`**"
   reload_failed: ":x: **重载 `{module}` 失败**: `{error}`"
+  reload_all: ":white_check_mark: **已重载全部 {count} 个模块**"
+  reload_all_partial: ":warning: **已重载 {count} 个模块, {failed} 个失败**:"
+  config_reloaded: ":white_check_mark: **配置已重载** (重新加载 {count} 个模块)"
+  config_reload_failed: ":x: **配置重载失败**: `{error}`"
 
 announce:
   cmd_desc: "[MOD] 在你的服务器关注公告频道"

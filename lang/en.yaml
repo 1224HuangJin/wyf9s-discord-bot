@@ -36,7 +36,7 @@ antispam:
   action_kick: "Kick"
   action_ban: "Ban"
   action_mute: "Mute {minutes}min"
-  snapshot_button_executed: "{action} executed on {user}"
+  snapshot_button_done: "{action} by {actor}"
   snapshot_button_no_permission: "You don't have permission"
   snapshot_button_failed: "Failed: {error}"
   unban_reason: "AntiSpam false positive, manually unbanned by {actor}"
@@ -64,15 +64,18 @@ lang:
 
 admin:
   cmd_sync_desc: "[ADMIN] Sync slash command tree"
-  cmd_reload_desc: "[ADMIN] Reload a cog module"
-  param_reload_module: "Cog name to reload (empty to list)"
+  cmd_reload_desc: "[ADMIN] Reload modules (empty = all; 'config' = config)"
+  param_reload_module: "Target to reload (empty = all; 'config' = config)"
   synced: "**:white_check_mark: Slash commands synced**"
   reload_cooldown: ":hourglass: **Cooldown: wait `{remaining}s` before reloading again**"
   reload_cooldown_short: ":hourglass: **Cooldown: wait `{remaining}s`**"
-  available_cogs: "**Available cogs** (`{count}`):"
   cog_not_found: ":x: **Cog `{module}` not found**"
   reloaded: ":white_check_mark: **Reloaded `{module}`**"
   reload_failed: ":x: **Failed to reload `{module}`**: `{error}`"
+  reload_all: ":white_check_mark: **Reloaded all {count} modules**"
+  reload_all_partial: ":warning: **Reloaded {count} modules, {failed} failed**:"
+  config_reloaded: ":white_check_mark: **Config reloaded** ({count} modules reloaded)"
+  config_reload_failed: ":x: **Config reload failed**: `{error}`"
 
 announce:
   cmd_desc: "[MOD] Follow the announcement channel in your server"

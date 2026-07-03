@@ -16,24 +16,46 @@ _reload_cooldowns: dict[int, float] = {}
 _RELOAD_COOLDOWN = 15  # seconds
 
 
+# Special reload target: reload config.yaml (instead of a cog)
+_CONFIG_TARGET = "config"
+
+
 class AdminCog(commands.Cog):
     def __init__(self, bot: commands.Bot):
         self.bot = bot
         self.c = bot.config  # ty:ignore[unresolved-attribute]
         self.audit: AuditLogger | None = getattr(bot, "audit", None)
         self.lang_store = getattr(bot, "lang_store", None)
+        self._cogs_cache: list[str] = []
+        self._cogs_cache_at: float = 0.0
 
     def _tr(self, source, key: str, **kwargs) -> str:
         return _t(key, lang_of(source, self.lang_store), **kwargs)
 
     def _list_cogs(self) -> list[str]:
-        cogs_dir = os.path.join(os.path.dirname(__file__))
-        cogs = sorted(
+        """列出 cogs 目录下的模块名, 结果缓存 1 秒"""
+        now = time.monotonic()
+        if self._cogs_cache and now - self._cogs_cache_at < 1.0:
+            return self._cogs_cache
+        cogs_dir = os.path.dirname(__file__)
+        self._cogs_cache = sorted(
             f[:-3]
             for f in os.listdir(cogs_dir)
             if f.endswith(".py") and not f.startswith("_")
         )
-        return cogs
+        self._cogs_cache_at = now
+        return self._cogs_cache
+
+    async def reload_autocomplete(
+        self, interaction: discord.Interaction, current: str
+    ) -> list[app_commands.Choice[str]]:
+        options = [_CONFIG_TARGET, *self._list_cogs()]
+        cur = current.lower()
+        return [
+            app_commands.Choice(name=name, value=name)
+            for name in options
+            if cur in name.lower()
+        ][:25]
 
     # ========== /sync ==========
 
@@ -87,6 +109,7 @@ class AdminCog(commands.Cog):
 
     @app_commands.command(name="reload", description=ls("admin.cmd_reload_desc"))
     @app_commands.describe(module=ls("admin.param_reload_module"))
+    @app_commands.autocomplete(module=reload_autocomplete)
     @u.requires(u.Permission.ADMIN)
     async def slash_reload(
         self, interaction: discord.Interaction, module: str | None = None
@@ -130,36 +153,41 @@ class AdminCog(commands.Cog):
 
         await self._handle_reload(ctx, module)
 
+    async def _reply_reload(self, source, msg: str, *, error: bool = False):
+        is_interaction = isinstance(source, discord.Interaction)
+        if is_interaction:
+            await source.followup.send(msg, ephemeral=error)
+        else:
+            await source.send(msg, delete_after=10 if error else None)
+
     async def _handle_reload(self, source, module: str | None):
         is_interaction = isinstance(source, discord.Interaction)
+        user = source.user if is_interaction else source.author
 
         if is_interaction:
             await source.response.defer()
 
-        available = self._list_cogs()
+        target = module.lower().strip() if module else None
 
-        if module is None:
-            lines = [self._tr(source, "admin.available_cogs", count=len(available))]
-            for name in available:
-                is_loaded = f"cogs.{name}" in self.bot.extensions
-                marker = ":green_circle:" if is_loaded else ":black_circle:"
-                lines.append(f"  {marker} `{name}`")
-            msg = "\n".join(lines)
-            if is_interaction:
-                await source.followup.send(msg)
-            else:
-                await source.send(msg)
+        # 1) config reload
+        if target == _CONFIG_TARGET:
+            await self._handle_reload_config(source, user)
             return
 
-        module = module.lower().strip()
-        ext_name = f"cogs.{module}"
+        # 2) reload all loaded cogs (no arg)
+        if target is None:
+            await self._handle_reload_all(source, user)
+            return
 
-        if ext_name not in self.bot.extensions and module not in available:
-            msg = self._tr(source, "admin.cog_not_found", module=module)
-            if is_interaction:
-                await source.followup.send(msg, ephemeral=True)
-            else:
-                await source.send(msg, delete_after=10)
+        # 3) reload a single cog
+        available = self._list_cogs()
+        ext_name = f"cogs.{target}"
+        if ext_name not in self.bot.extensions and target not in available:
+            await self._reply_reload(
+                source,
+                self._tr(source, "admin.cog_not_found", module=target),
+                error=True,
+            )
             return
 
         try:
@@ -168,35 +196,109 @@ class AdminCog(commands.Cog):
             else:
                 await self.bot.load_extension(ext_name)
 
-            # Also reload perm store if perm cog was reloaded
-            if module == "perm":
+            if target == "perm":
                 perm_store = getattr(self.bot, "perm_store", None)
                 if perm_store:
                     perm_store._load()
 
-            msg = self._tr(source, "admin.reloaded", module=module)
-            l.info(f"Reloaded cog: {module}")
-            if is_interaction:
-                await source.followup.send(msg)
-            else:
-                await source.send(msg)
-
+            l.info(f"Reloaded cog: {target}")
+            await self._reply_reload(
+                source, self._tr(source, "admin.reloaded", module=target)
+            )
             if self.audit:
-                user = source.user if is_interaction else source.author
                 await self.audit.log(
                     action="reload",
                     user=user,
                     guild=source.guild,
                     channel=source.channel,
-                    detail=f"Reloaded cog: {module}",
+                    detail=f"Reloaded cog: {target}",
                 )
         except Exception as e:
-            msg = self._tr(source, "admin.reload_failed", module=module, error=e)
-            l.error(f"Failed to reload cog {module}: {e}")
-            if is_interaction:
-                await source.followup.send(msg, ephemeral=True)
-            else:
-                await source.send(msg, delete_after=10)
+            l.error(f"Failed to reload cog {target}: {e}")
+            await self._reply_reload(
+                source,
+                self._tr(source, "admin.reload_failed", module=target, error=e),
+                error=True,
+            )
+
+    async def _reload_all_extensions(self) -> tuple[int, list[str]]:
+        """重载所有已加载的 cog, 返回 (成功数, 失败信息列表)"""
+        succeeded = 0
+        failures: list[str] = []
+        for ext_name in list(self.bot.extensions):
+            try:
+                await self.bot.reload_extension(ext_name)
+                succeeded += 1
+            except Exception as e:
+                failures.append(f"`{ext_name}`: {e}")
+                l.error(f"Failed to reload {ext_name}: {e}")
+        perm_store = getattr(self.bot, "perm_store", None)
+        if perm_store:
+            perm_store._load()
+        return succeeded, failures
+
+    async def _handle_reload_all(self, source, user):
+        succeeded, failures = await self._reload_all_extensions()
+        l.info(f"Reloaded all cogs: {succeeded} ok, {len(failures)} failed")
+        if failures:
+            msg = (
+                self._tr(
+                    source,
+                    "admin.reload_all_partial",
+                    count=succeeded,
+                    failed=len(failures),
+                )
+                + "\n"
+                + "\n".join(f"  {f}" for f in failures)
+            )
+        else:
+            msg = self._tr(source, "admin.reload_all", count=succeeded)
+        await self._reply_reload(source, msg, error=bool(failures))
+        if self.audit:
+            await self.audit.log(
+                action="reload-all",
+                user=user,
+                guild=source.guild,
+                channel=source.channel,
+                detail=f"Reloaded {succeeded} cogs, {len(failures)} failed",
+                success=not failures,
+            )
+
+    async def _handle_reload_config(self, source, user):
+        from config import Config
+
+        try:
+            new_config = Config().config
+        except Exception as e:
+            l.error(f"Failed to reload config: {e}")
+            await self._reply_reload(
+                source,
+                self._tr(source, "admin.config_reload_failed", error=e),
+                error=True,
+            )
+            return
+
+        # Update shared config references, then reload cogs so they pick it up
+        self.bot.config = new_config  # ty:ignore[unresolved-attribute]
+        self.c = new_config
+        if self.audit:
+            self.audit.c = new_config
+        succeeded, failures = await self._reload_all_extensions()
+        l.info(f"Config reloaded; {succeeded} cogs reloaded, {len(failures)} failed")
+
+        msg = self._tr(source, "admin.config_reloaded", count=succeeded)
+        if failures:
+            msg += "\n" + "\n".join(f"  {f}" for f in failures)
+        await self._reply_reload(source, msg, error=bool(failures))
+        if self.audit:
+            await self.audit.log(
+                action="reload-config",
+                user=user,
+                guild=source.guild,
+                channel=source.channel,
+                detail=f"Reloaded config + {succeeded} cogs, {len(failures)} failed",
+                success=not failures,
+            )
 
 
 async def setup(bot: commands.Bot):

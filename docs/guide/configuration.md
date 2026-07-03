@@ -75,12 +75,14 @@ log:
   file_level: "INFO"
   rotation: "1 days"
   retention: "3 days"
+  discord_level: "INFO"       # discord.py 库自身日志级别 (独立于 level)
 
-# 管理操作执行日志 (无指令, 服务模块)
+# 操作 / 审计日志 (无指令, 服务模块)
+# action = 普通指令操作日志; audit = 审计日志 (反垃圾自动处置 / 斜杠错误)
 audit:
   enabled: false
-  global_channel: null
-  global_lang: zh
+  global_action: null         # 全局「操作日志」频道 (null 禁用)
+  global_audit: null          # 全局「审计日志」频道 (null 禁用)
   guilds: {}
 
 # Emoji 模块
