@@ -41,6 +41,12 @@ class _LoggingConfigModel(BaseModel):
     - CRITICAL
     """
 
+    discord_level: t.Literal["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"] = "INFO"
+    """
+    discord.py 库自身的日志等级 (独立于 level, 避免 DEBUG 下大量底层网关日志)
+    - 默认 INFO; 如需排查连接问题可设为 DEBUG
+    """
+
     rotation: str | int = "1 days"
     """
     配置 Loguru 的 rotation (轮转周期) 设置
@@ -51,7 +57,7 @@ class _LoggingConfigModel(BaseModel):
     配置 Loguru 的 retention (轮转保留) 设置
     """
 
-    @field_validator("level", "file_level", mode="before")
+    @field_validator("level", "file_level", "discord_level", mode="before")
     def normalize_level(cls, v):
         if v is None:
             return v

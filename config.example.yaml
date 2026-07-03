@@ -17,6 +17,7 @@ log:
   level: "INFO"               # 控制台日志级别: DEBUG | INFO | WARNING | ERROR | CRITICAL
   file: "logs/{time:YYYY-MM-DD}.log"  # 日志文件路径 (null 禁用)
   file_level: "INFO"          # 文件日志级别 (null 则跟随 level)
+  discord_level: "INFO"       # discord.py 库自身日志级别 (独立于 level, 避免 DEBUG 下大量底层网关日志)
   rotation: "1 days"          # 日志轮转周期
   retention: "3 days"         # 日志保留时间
 

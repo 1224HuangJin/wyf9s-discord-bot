@@ -88,20 +88,19 @@ if c.log.file:
     l.info(f"Saving logs to {log_file_path}")
 
 
-logging.getLogger().handlers.clear()
-logging.getLogger("discord").handlers.clear()
-logging.getLogger("discord.http").handlers.clear()
-logging.getLogger("discord.gateway").handlers.clear()
-logging.getLogger("discord.client").handlers.clear()
-
+# Route ALL stdlib logging (including discord.py) through loguru via a single
+# InterceptHandler on the root logger. Child loggers keep no handlers of their
+# own and propagate up to root, so each record is emitted exactly once.
 logging.root.handlers = [InterceptHandler()]
 logging.root.setLevel(c.log.level)
 
-discord_logger = logging.getLogger("discord")
-discord_logger.handlers = [InterceptHandler()]
-discord_logger.setLevel(c.log.level)
-
-logging.getLogger("discord.http").setLevel(logging.WARNING)
+# discord.py's own loggers are tuned independently so that running the app at
+# DEBUG doesn't flood the output with low-level gateway/event payloads.
+for _name in ("discord", "discord.http", "discord.gateway", "discord.client"):
+    _dlog = logging.getLogger(_name)
+    _dlog.handlers.clear()
+    _dlog.propagate = True
+    _dlog.setLevel(c.log.discord_level)
 
 # endregion init
 
@@ -234,6 +233,13 @@ async def main():
 if __name__ == "__main__":
     import asyncio
 
-    asyncio.run(main())
+    try:
+        asyncio.run(main())
+    except (KeyboardInterrupt, asyncio.CancelledError):
+        l.info("Received shutdown signal, exiting gracefully.")
+    except Exception as e:
+        l.opt(exception=e).critical("Fatal error, shutting down.")
+    finally:
+        l.info("Bye!")
 
 # endregion login
