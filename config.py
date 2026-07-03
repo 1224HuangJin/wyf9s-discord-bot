@@ -1,4 +1,5 @@
 import typing as t
+from pathlib import Path
 
 from loguru import logger as l
 from pydantic import BaseModel, ConfigDict, Field, field_validator
@@ -438,6 +439,18 @@ class Config:
             exit(1)
         except Exception as e:
             l.error(f"Error when loading config.yaml: {e}")
+
+        # load token from tk.yaml if it exists (for config splitting)
+        tk_path = u.get_path("tk.yaml", create_dirs=False)
+        if Path(tk_path).exists():
+            try:
+                with open(tk_path, "r", encoding="utf-8") as f:
+                    tk_data: dict = safe_load(f)
+                if isinstance(tk_data, dict) and "token" in tk_data:
+                    raw_config["token"] = tk_data["token"]
+                    l.info("[config] Loaded token from tk.yaml")
+            except Exception as e:
+                l.warning(f"[config] Failed to load tk.yaml: {e}")
 
         # process config
         self.config = ConfigModel.model_validate(raw_config)

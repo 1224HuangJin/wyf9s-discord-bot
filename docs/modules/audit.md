@@ -42,7 +42,7 @@
 
 ## 多语言
 
-支持中英双语，可分别为全局与各服务器设置：
+支持中英双语。语言通过 `/lang` 命令设置（优先级：用户设置 > 服务器设置 > 默认 `zh`），详见 [lang 模块文档](lang.md)。
 
 | 语言值 | 说明 |
 | --- | --- |
@@ -55,39 +55,29 @@
 audit:
   enabled: false
   global_channel: null    # 全局日志频道 ID (null 禁用)
-  global_lang: zh         # 全局日志语言: zh (默认) / en
   guilds: {}              # 按服务器配置的日志频道
-  # 示例 (两种写法均可):
-  #   123456789:  987654321              # 仅频道 ID, 语言默认 zh
-  #   123456789:                         # 或指定语言
-  #     channel: 987654321
-  #     lang: en
+  # 示例 (仅频道 ID):
+  #   123456789:  987654321
 ```
 
 | 字段 | 类型 | 默认值 | 说明 |
 | --- | --- | --- | --- |
 | `enabled` | `bool` | `false` | 是否启用审计日志 |
 | `global_channel` | `int \| null` | `null` | 全局日志频道 ID（`null` 禁用全局日志） |
-| `global_lang` | `zh` / `en` | `zh` | 全局日志语言 |
 | `guilds` | `dict` | `{}` | 按服务器配置，见下 |
 
 ### `guilds` 写法
 
-key 为服务器 ID（数字或字符串），value 可以是：
-
-- **频道 ID**（数字）：语言默认 `zh`；
-- 或对象 `{ channel: 频道ID, lang: zh/en }`。
+key 为服务器 ID（数字或字符串），value 为频道 ID（数字）或对象 `{ channel: 频道ID }`。
 
 ```yaml
 audit:
   enabled: true
   global_channel: 111111111111111111
-  global_lang: zh
   guilds:
     222222222222222222: 333333333333333333      # 简写: 仅频道 ID
     444444444444444444:
       channel: 555555555555555555
-      lang: en
 ```
 
 ::: tip

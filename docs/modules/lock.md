@@ -8,7 +8,7 @@
 
 ## 锁定原理
 
-通过修改频道对 `@everyone`（`default_role`）的**权限覆盖（overwrites）**实现：
+通过修改频道对 `@everyone`（`default_role`）的 **权限覆盖（overwrites）** 实现：
 
 - 文字频道：`send_messages` / `send_messages_in_threads` 设为拒绝。
 - 语音 / 讲堂频道：额外将 `connect` 设为拒绝。

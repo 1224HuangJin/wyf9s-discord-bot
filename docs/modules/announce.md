@@ -1,6 +1,6 @@
 # 公告推送 (announce)
 
-使用 Discord 内置的**频道关注（Channel Following）**功能。Mod 通过 `/subscribe` 使本地频道关注配置中指定的公告频道，消息自动转发。
+使用 Discord 内置的 **频道关注（Channel Following）** 功能。Mod 通过 `/subscribe` 使本地频道关注配置中指定的公告频道，消息自动转发。
 
 - **配置键**：`announce`
 - **源文件**：`cogs/announce.py`
@@ -13,7 +13,7 @@ announce:
 ```
 
 | 字段 | 类型 | 默认值 | 说明 |
-| --- | --- | --- |
+| --- | --- | --- | --- |
 | `source_channel` | `int \| null` | `null` | 公告频道 ID，设置为 null 禁用 |
 
 ## 指令
