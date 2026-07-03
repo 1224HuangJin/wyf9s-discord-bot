@@ -76,8 +76,10 @@ class AnnounceCog(commands.Cog):
             return
 
         try:
-            await destination.follow(
-                destination=source,
+            # follow() must be called on the news/source channel; `destination`
+            # is the target channel that will receive the announcements.
+            await source.follow(
+                destination=destination,
                 reason=f"Subscribed by {interaction.user} via wyf9-bot",
             )
         except discord.Forbidden:

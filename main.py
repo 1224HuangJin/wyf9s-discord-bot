@@ -188,7 +188,7 @@ async def on_tree_error(
                 channel=interaction.channel,
                 detail=f"```\n{type(error).__name__}: {str(error)[:900]}\n```",
                 success=False,
-                auto=True,
+                auto=False,
             )
         except Exception:
             pass
