@@ -10,6 +10,7 @@ from discord.ext import commands, tasks
 from yaml import safe_load, safe_dump
 
 from modules.audit import AuditLogger
+from i18n import t as _t, lang_of, ls
 import utils as u
 
 
@@ -160,6 +161,16 @@ class LockCog(commands.Cog):
         self.audit: AuditLogger | None = getattr(bot, "audit", None)
         self.store = getattr(bot, "schedule_store", ScheduleStore())
         bot.schedule_store = self.store  # ty:ignore[unresolved-attribute]
+        self.lang_store = getattr(bot, "lang_store", None)
+
+    def _tr(self, source, key: str, **kwargs) -> str:
+        return _t(key, lang_of(source, self.lang_store), **kwargs)
+
+    def _tr_guild(self, guild: discord.Guild | None, key: str, **kwargs) -> str:
+        lang = (
+            self.lang_store.resolve(0, guild.id) if self.lang_store and guild else "zh"
+        )
+        return _t(key, lang, **kwargs)
 
     def cog_load(self):
         if not self._check_schedules.is_running():
@@ -173,10 +184,10 @@ class LockCog(commands.Cog):
 
     # ========== Slash Commands ==========
 
-    lock_group = app_commands.Group(name="lock", description="Channel lock commands")
+    lock_group = app_commands.Group(name="lock", description=ls("lock.cmd_group_desc"))
 
-    @lock_group.command(name="now", description="[MOD] Lock a channel now")
-    @app_commands.describe(channel="Channel to lock (default: current)")
+    @lock_group.command(name="now", description=ls("lock.cmd_now_desc"))
+    @app_commands.describe(channel=ls("lock.param_channel_lock"))
     @u.requires(u.Permission.MOD, perm_module="lock")
     async def slash_lock(
         self,
@@ -188,8 +199,8 @@ class LockCog(commands.Cog):
     ):
         await self._handle_lock(interaction, channel)
 
-    @lock_group.command(name="unlock", description="[MOD] Unlock a channel now")
-    @app_commands.describe(channel="Channel to unlock (default: current)")
+    @lock_group.command(name="unlock", description=ls("lock.cmd_unlock_desc"))
+    @app_commands.describe(channel=ls("lock.param_channel_unlock"))
     @u.requires(u.Permission.MOD, perm_module="lock")
     async def slash_unlock(
         self,
@@ -201,16 +212,16 @@ class LockCog(commands.Cog):
     ):
         await self._handle_unlock(interaction, channel)
 
-    @lock_group.command(name="plan", description="[MOD] Schedule a channel lock/unlock")
+    @lock_group.command(name="plan", description=ls("lock.cmd_plan_desc"))
     @app_commands.describe(
-        channel="Target channel (default: current)",
-        lock_day="Lock date (yyyy-mm-dd / mm-dd / dd)",
-        lock_time="Lock time (hh-mm)",
-        unlock_day="Unlock date (yyyy-mm-dd / mm-dd / dd)",
-        unlock_time="Unlock time (hh-mm)",
-        cycle="Cycle (daily / mon,tue,... / 1,2,3 / 1-5)",
-        cycle_start="Cycle start (yyyy-mm-dd)",
-        cycle_end="Cycle end (yyyy-mm-dd)",
+        channel=ls("lock.param_plan_channel"),
+        lock_day=ls("lock.param_plan_lock_day"),
+        lock_time=ls("lock.param_plan_lock_time"),
+        unlock_day=ls("lock.param_plan_unlock_day"),
+        unlock_time=ls("lock.param_plan_unlock_time"),
+        cycle=ls("lock.param_plan_cycle"),
+        cycle_start=ls("lock.param_plan_cycle_start"),
+        cycle_end=ls("lock.param_plan_cycle_end"),
     )
     @u.requires(u.Permission.MOD, perm_module="lock")
     async def slash_plan_lock(
@@ -250,8 +261,8 @@ class LockCog(commands.Cog):
                 choices.append(app_commands.Choice(name=label[:100], value=i))
         return choices[:25]
 
-    @lock_group.command(name="unplan", description="[MOD] Cancel a scheduled lock")
-    @app_commands.describe(index="Schedule index to cancel")
+    @lock_group.command(name="unplan", description=ls("lock.cmd_unplan_desc"))
+    @app_commands.describe(index=ls("lock.param_unplan_index"))
     @app_commands.autocomplete(index=unplan_autocomplete)
     @u.requires(u.Permission.MOD, perm_module="lock")
     async def slash_unplan_lock(self, interaction: discord.Interaction, index: int):
@@ -261,9 +272,7 @@ class LockCog(commands.Cog):
 
     @commands.group(name="lock", invoke_without_command=True)
     async def prefix_lock_group(self, ctx: commands.Context):
-        await ctx.send(
-            "Use subcommands: `lock now`, `lock unlock`, `lock plan`, `lock unplan`"
-        )
+        await ctx.send(self._tr(ctx, "lock.usage_prefix"))
 
     @prefix_lock_group.command(name="now")
     @u.requires(u.Permission.MOD, perm_module="lock")
@@ -328,7 +337,7 @@ class LockCog(commands.Cog):
         ):
             await u.send_msg(
                 source,
-                ":x: **Channel type not supported for locking** :x:",
+                self._tr(source, "lock.type_not_supported_lock"),
                 ephemeral=True,
                 delete_after=10,
             )
@@ -337,12 +346,9 @@ class LockCog(commands.Cog):
             is_voice = isinstance(target, (discord.VoiceChannel, discord.StageChannel))
             everyone = target.guild.default_role
             if is_voice:
-                await u.send_msg(
-                    source,
-                    ":lock: Channel locked.\n> Voice/stage channel locked, cannot join",
-                )
+                await u.send_msg(source, self._tr(source, "lock.locked_voice"))
             else:
-                await u.send_msg(source, ":lock: Channel locked.")
+                await u.send_msg(source, self._tr(source, "lock.locked"))
             overwrites = target.overwrites_for(everyone)
             overwrites.send_messages = False
             overwrites.send_messages_in_threads = False
@@ -363,14 +369,14 @@ class LockCog(commands.Cog):
         except discord.Forbidden:
             await u.send_msg(
                 source,
-                ":x: **Permission denied** :x:",
+                self._tr(source, "common.permission_denied"),
                 ephemeral=True,
                 delete_after=10,
             )
         except Exception as e:
             await u.send_msg(
                 source,
-                f":x: **Lock failed: `{e}`** :x:",
+                self._tr(source, "lock.lock_failed", error=e),
                 ephemeral=True,
                 delete_after=10,
             )
@@ -383,7 +389,7 @@ class LockCog(commands.Cog):
         ):
             await u.send_msg(
                 source,
-                ":x: **Channel type not supported** :x:",
+                self._tr(source, "lock.type_not_supported"),
                 ephemeral=True,
                 delete_after=10,
             )
@@ -400,12 +406,9 @@ class LockCog(commands.Cog):
                 everyone, overwrite=overwrites, reason=f"Unlock by {user}"
             )
             if is_voice:
-                await u.send_msg(
-                    source,
-                    ":unlock: Channel unlocked.\n> Voice/stage channel unlocked",
-                )
+                await u.send_msg(source, self._tr(source, "lock.unlocked_voice"))
             else:
-                await u.send_msg(source, ":unlock: Channel unlocked.")
+                await u.send_msg(source, self._tr(source, "lock.unlocked"))
             if self.audit:
                 await self.audit.log(
                     action="unlock",
@@ -418,14 +421,14 @@ class LockCog(commands.Cog):
         except discord.Forbidden:
             await u.send_msg(
                 source,
-                ":x: **Permission denied** :x:",
+                self._tr(source, "common.permission_denied"),
                 ephemeral=True,
                 delete_after=10,
             )
         except Exception as e:
             await u.send_msg(
                 source,
-                f":x: **Unlock failed: `{e}`** :x:",
+                self._tr(source, "lock.unlock_failed", error=e),
                 ephemeral=True,
                 delete_after=10,
             )
@@ -449,7 +452,7 @@ class LockCog(commands.Cog):
         ):
             await u.send_msg(
                 source,
-                ":x: **Channel type not supported** :x:",
+                self._tr(source, "lock.type_not_supported"),
                 ephemeral=True,
                 delete_after=10,
             )
@@ -457,7 +460,7 @@ class LockCog(commands.Cog):
         if not lock_day and not lock_time and not unlock_day and not unlock_time:
             await u.send_msg(
                 source,
-                ":x: **Specify at least lock or unlock time** :x:",
+                self._tr(source, "lock.plan_need_time"),
                 ephemeral=True,
                 delete_after=10,
             )
@@ -471,7 +474,7 @@ class LockCog(commands.Cog):
                 if not is_wd and not is_dom:
                     await u.send_msg(
                         source,
-                        ":x: **Invalid cycle format** :x:",
+                        self._tr(source, "lock.plan_invalid_cycle"),
                         ephemeral=True,
                         delete_after=10,
                     )
@@ -491,16 +494,33 @@ class LockCog(commands.Cog):
         self.store.add(schedule)
         parts = []
         if lock_day or lock_time:
-            parts.append(f"Lock: {lock_day or '?'} {lock_time or '?'}")
+            parts.append(
+                self._tr(
+                    source,
+                    "lock.plan_part_lock",
+                    day=lock_day or "?",
+                    time=lock_time or "?",
+                )
+            )
         if unlock_day or unlock_time:
-            parts.append(f"Unlock: {unlock_day or '?'} {unlock_time or '?'}")
+            parts.append(
+                self._tr(
+                    source,
+                    "lock.plan_part_unlock",
+                    day=unlock_day or "?",
+                    time=unlock_time or "?",
+                )
+            )
         if cycle:
-            parts.append(f"Cycle: {cycle}")
+            parts.append(self._tr(source, "lock.plan_part_cycle", cycle=cycle))
         await u.send_msg(
             source,
-            f":clock3: **Scheduled channel operation** :clock3:\n"
-            f"> Channel: {target.mention}\n"
-            f"> {' / '.join(parts)}",
+            self._tr(
+                source,
+                "lock.plan_ok",
+                channel=target.mention,
+                detail=" / ".join(parts),
+            ),
         )
         if self.audit:
             await self.audit.log(
@@ -516,7 +536,7 @@ class LockCog(commands.Cog):
         if not self.store.schedules:
             await u.send_msg(
                 source,
-                ":x: **No scheduled locks** :x:",
+                self._tr(source, "lock.unplan_none"),
                 ephemeral=True,
                 delete_after=10,
             )
@@ -527,14 +547,16 @@ class LockCog(commands.Cog):
             )
             await u.send_msg(
                 source,
-                f":x: **Invalid index, choose:** :x:\n{items}",
+                self._tr(source, "lock.unplan_invalid_index", items=items),
                 ephemeral=True,
                 delete_after=15,
             )
             return
         removed = self.store.schedules[index]
         self.store.remove_by_index(index)
-        await u.send_msg(source, f":white_check_mark: **Cancelled:** {removed.label}")
+        await u.send_msg(
+            source, self._tr(source, "lock.unplan_ok", label=removed.label)
+        )
         if self.audit:
             await self.audit.log(
                 action="unplan-lock",
@@ -597,11 +619,14 @@ class LockCog(commands.Cog):
                     try:
                         if is_voice:
                             await channel.send(
-                                ":lock: Channel locked (scheduled).\n"
-                                "> Voice/stage channel locked"
+                                self._tr_guild(
+                                    channel.guild, "lock.scheduled_locked_voice"
+                                )
                             )
                         else:
-                            await channel.send(":lock: Channel locked (scheduled).")
+                            await channel.send(
+                                self._tr_guild(channel.guild, "lock.scheduled_locked")
+                            )
                         overwrites = channel.overwrites_for(everyone)
                         overwrites.send_messages = False
                         overwrites.send_messages_in_threads = False
@@ -635,11 +660,14 @@ class LockCog(commands.Cog):
                         )
                         if is_voice:
                             await channel.send(
-                                ":unlock: Channel unlocked (scheduled).\n"
-                                "> Voice/stage channel unlocked"
+                                self._tr_guild(
+                                    channel.guild, "lock.scheduled_unlocked_voice"
+                                )
                             )
                         else:
-                            await channel.send(":unlock: Channel unlocked (scheduled).")
+                            await channel.send(
+                                self._tr_guild(channel.guild, "lock.scheduled_unlocked")
+                            )
                         l.info(
                             f"[lock] Scheduled unlock: {channel.name} ({channel.id})"
                         )

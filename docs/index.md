@@ -67,6 +67,10 @@ features:
     title: 多层权限系统
     details: 服务器管理员 / 配置管理员 / Mod 三层权限 + 动态权限，声明式装饰器统一控制
     link: /guide/permissions
+  - icon: 🌐
+    title: 多语言 (i18n)
+    details: /lang 按用户 / 服务器切换语言（zh / en），命令描述随 Discord 客户端语言本地化
+    link: /modules/lang
 ---
 
 ## 这是什么？
@@ -77,6 +81,7 @@ features:
 - **双命令模式**：所有指令模块同时支持**斜杠命令**（`/cmd`）与**前缀命令**（`//cmd`），可分别开关
 - **配置驱动**：使用 YAML + Pydantic v2 强类型校验，启动时验证配置，出错即报
 - **多层权限**：服务器管理员 / 配置管理员 / Mod / 动态权限多层体系
+- **多语言**：内置 i18n，`/lang` 按用户 / 服务器切换语言，命令描述随 Discord 客户端语言本地化
 - **可观测**：内置审计日志服务，管理操作可记录到指定频道
 
 > 详细技术栈与设计说明见 [项目介绍](/guide/introduction)。

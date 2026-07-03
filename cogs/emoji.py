@@ -8,6 +8,7 @@ from discord.ext import commands
 import aiohttp
 
 from modules.audit import AuditLogger
+from i18n import t as _t, lang_of, ls
 import utils as u
 
 
@@ -24,6 +25,10 @@ class EmojiCog(commands.Cog):
         self.bot = bot
         self.c = bot.config  # ty:ignore[unresolved-attribute]
         self.audit: AuditLogger | None = getattr(bot, "audit", None)
+        self.lang_store = getattr(bot, "lang_store", None)
+
+    def _tr(self, source, key: str, **kwargs) -> str:
+        return _t(key, lang_of(source, self.lang_store), **kwargs)
 
     def cog_load(self):
         if not getattr(self.bot, "emoji_data", None):
@@ -36,25 +41,40 @@ class EmojiCog(commands.Cog):
     # ========== Slash Group: /emoji ==========
 
     emoji_group = app_commands.Group(
-        name="emoji", description="Emoji management commands"
+        name="emoji", description=ls("emoji.cmd_group_desc")
     )
 
-    @emoji_group.command(
-        name="update", description="[ADMIN] Update emoji list from source"
-    )
+    def _build_update_msg(self, source) -> str:
+        return self._tr(
+            source,
+            "emoji.update_success",
+            ts=self.emoji_data.utc_build_timestamp,
+            commit=self.emoji_data.commit_id,
+            count=len(self.emoji_data.emojis),
+        )
+
+    def _build_info_msg(self, source) -> str:
+        ed = self.emoji_data
+        return self._tr(
+            source,
+            "emoji.info",
+            ts=ed.utc_build_timestamp,
+            cf=self._tr(source, "emoji.info_yes")
+            if ed.is_cf_pages
+            else self._tr(source, "emoji.info_no"),
+            commit=ed.commit_id,
+            branch=ed.commit_branch,
+            count=len(ed.emojis),
+            base_url=self.c.emoji.base_url,
+        )
+
+    @emoji_group.command(name="update", description=ls("emoji.cmd_update_desc"))
     @u.requires(u.Permission.ADMIN, perm_module="emoji")
     async def emoji_update(self, interaction: discord.Interaction):
         await interaction.response.defer()
         succ, err = await self.update_emoji_list()
         if succ:
-            msg = (
-                f"**:white_check_mark: Update Emoji Success!**\n"
-                f"> **Build Time**: <t:{self.emoji_data.utc_build_timestamp}:f>\n"
-                f"> **Commit**: [`{self.emoji_data.commit_id}`]"
-                f"(https://github.com/siiway/ghimg/commit/{self.emoji_data.commit_id})\n"
-                f"> **Emojis**: `{len(self.emoji_data.emojis)}`"
-            )
-            await interaction.followup.send(msg)
+            await interaction.followup.send(self._build_update_msg(interaction))
             if self.audit:
                 await self.audit.log(
                     action="emoji-update",
@@ -65,26 +85,15 @@ class EmojiCog(commands.Cog):
                 )
         else:
             await interaction.followup.send(
-                f"**:x: Update Emoji Failed: {err}**", ephemeral=True
+                self._tr(interaction, "emoji.update_failed", error=err),
+                ephemeral=True,
             )
 
-    @emoji_group.command(name="info", description="Show emoji source info")
+    @emoji_group.command(name="info", description=ls("emoji.cmd_info_desc"))
     async def emoji_info(self, interaction: discord.Interaction):
         if not await self._check_rate_limit(interaction, "emoji-info"):
             return
-        ed = self.emoji_data
-        msg = (
-            f"**:information_source: Emojis Info**\n"
-            f"> **Build Time**: <t:{ed.utc_build_timestamp}:f>\n"
-            f"> **Build on CF Pages**: {'Yes' if ed.is_cf_pages else 'No'}\n"
-            f"> **Commit ID**: [`{ed.commit_id}`]"
-            f"(https://github.com/siiway/ghimg/commit/{ed.commit_id})\n"
-            f"> **Commit Branch**: `{ed.commit_branch}`\n"
-            f"> **Emoji Count**: {len(ed.emojis)}\n"
-            f"> **Emoji Source**: [`emoji.json`]"
-            f"({self.c.emoji.base_url}/emoji.json?disable-cache)"
-        )
-        await interaction.response.send_message(msg)
+        await interaction.response.send_message(self._build_info_msg(interaction))
 
     # ========== Slash: /e (send emoji) ==========
 
@@ -98,15 +107,15 @@ class EmojiCog(commands.Cog):
         ][: self.c.emoji.max_results]
         return filtered
 
-    @app_commands.command(name="e", description="Send an emoji from the library")
-    @app_commands.describe(name="Search and select an emoji")
+    @app_commands.command(name="e", description=ls("emoji.cmd_e_desc"))
+    @app_commands.describe(name=ls("emoji.param_e_name"))
     @app_commands.autocomplete(name=e_autocomplete)
     async def e(self, interaction: discord.Interaction, name: str):
         if not await self._check_rate_limit(interaction, "e"):
             return
         if name not in self.emoji_data.emojis:
             await interaction.response.send_message(
-                ":x: **Invalid emoji name, please select from list**",
+                self._tr(interaction, "emoji.invalid_name"),
                 ephemeral=True,
                 delete_after=10,
             )
@@ -124,12 +133,16 @@ class EmojiCog(commands.Cog):
                             file=discord.File(
                                 fp=file,
                                 filename=name,
-                                description=f"Emoji (sticker): {name}",
+                                description=self._tr(
+                                    interaction, "emoji.sticker_desc", name=name
+                                ),
                             )
                         )
         except Exception as err:
             await interaction.followup.send(
-                f"> Fetch emoji [{name}]({imgurl}) **ERROR**: `{err}`",
+                self._tr(
+                    interaction, "emoji.fetch_error", name=name, url=imgurl, error=err
+                ),
                 ephemeral=True,
             )
 
@@ -137,7 +150,7 @@ class EmojiCog(commands.Cog):
 
     @commands.group(name="emoji", invoke_without_command=True)
     async def prefix_emoji(self, ctx: commands.Context):
-        await ctx.send("Use subcommands: `emoji update`, `emoji info`, or `e <name>`")
+        await ctx.send(self._tr(ctx, "emoji.usage_prefix"))
 
     @prefix_emoji.command(name="update")
     @u.requires(u.Permission.ADMIN, perm_module="emoji")
@@ -145,14 +158,7 @@ class EmojiCog(commands.Cog):
         await ctx.defer()
         succ, err = await self.update_emoji_list()
         if succ:
-            msg = (
-                f"**:white_check_mark: Update Emoji Success!**\n"
-                f"> **Build Time**: <t:{self.emoji_data.utc_build_timestamp}:f>\n"
-                f"> **Commit**: [`{self.emoji_data.commit_id}`]"
-                f"(https://github.com/siiway/ghimg/commit/{self.emoji_data.commit_id})\n"
-                f"> **Emojis**: `{len(self.emoji_data.emojis)}`"
-            )
-            await ctx.send(msg)
+            await ctx.send(self._build_update_msg(ctx))
             if self.audit:
                 await self.audit.log(
                     action="emoji-update",
@@ -162,34 +168,22 @@ class EmojiCog(commands.Cog):
                     detail=f"Updated emoji list ({len(self.emoji_data.emojis)} total)",
                 )
         else:
-            await ctx.send(f"**:x: Update Emoji Failed: {err}**", delete_after=10)
+            await ctx.send(
+                self._tr(ctx, "emoji.update_failed", error=err), delete_after=10
+            )
 
     @prefix_emoji.command(name="info")
     async def prefix_emoji_info(self, ctx: commands.Context):
         if not await self._check_rate_limit(ctx, "emoji-info"):
             return
-        ed = self.emoji_data
-        msg = (
-            f"**:information_source: Emojis Info**\n"
-            f"> **Build Time**: <t:{ed.utc_build_timestamp}:f>\n"
-            f"> **Build on CF Pages**: {'Yes' if ed.is_cf_pages else 'No'}\n"
-            f"> **Commit ID**: [`{ed.commit_id}`]"
-            f"(https://github.com/siiway/ghimg/commit/{ed.commit_id})\n"
-            f"> **Commit Branch**: `{ed.commit_branch}`\n"
-            f"> **Emoji Count**: {len(ed.emojis)}\n"
-            f"> **Emoji Source**: [`emoji.json`]"
-            f"({self.c.emoji.base_url}/emoji.json?disable-cache)"
-        )
-        await ctx.send(msg)
+        await ctx.send(self._build_info_msg(ctx))
 
     @commands.command(name="e")
     async def prefix_e(self, ctx: commands.Context, *, name: str):
         if not await self._check_rate_limit(ctx, "e"):
             return
         if name not in self.emoji_data.emojis:
-            await ctx.send(
-                ":x: **Invalid emoji name, please select from list**", delete_after=10
-            )
+            await ctx.send(self._tr(ctx, "emoji.invalid_name"), delete_after=10)
             return
 
         imgurl = f"{self.c.emoji.base_url}/{name}"
@@ -204,12 +198,15 @@ class EmojiCog(commands.Cog):
                             file=discord.File(
                                 fp=file,
                                 filename=name,
-                                description=f"Emoji (sticker): {name}",
+                                description=self._tr(
+                                    ctx, "emoji.sticker_desc", name=name
+                                ),
                             )
                         )
         except Exception as err:
             await ctx.send(
-                f"> Fetch emoji [{name}]({imgurl}) **ERROR**: `{err}`", delete_after=10
+                self._tr(ctx, "emoji.fetch_error", name=name, url=imgurl, error=err),
+                delete_after=10,
             )
 
     # ========== Shared Logic ==========
@@ -233,7 +230,7 @@ class EmojiCog(commands.Cog):
         if not allowed:
             await u.send_msg(
                 source,
-                f":hourglass_flowing_sand: **Rate limited, retry in `{retry_after:.0f}s`**",
+                self._tr(source, "common.rate_limited", retry=f"{retry_after:.0f}"),
                 ephemeral=True,
                 delete_after=10,
             )

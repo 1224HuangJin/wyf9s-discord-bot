@@ -10,9 +10,14 @@ config.yaml          # 运行时配置 (被 gitignore)
 config.example.yaml  # 带内联文档的示例配置 (配置字段的事实来源)
 schedules.yaml       # 计划锁定数据 (自动生成)
 perm.yaml            # 动态权限数据 (通过 /perm 指令管理)
-main.py              # 机器人入口，Cog 加载
+main.py              # 机器人入口，Cog 加载，命令本地化翻译器注册
 utils.py             # 共享工具 (权限判定、限速器、消息发送等)
 perm.py              # 动态权限存储服务
+i18n.py              # i18n 运行时 (t / lang_of) + Discord 命令本地化翻译器
+lang_store.py        # 用户 / 服务器语言偏好持久化
+lang/                # 语言文件
+  zh.yaml            # 简体中文 (默认)
+  en.yaml            # English
 cogs/                # 命令模块 (discord.py Cog)
   admin.py           # 管理指令: /sync, /reload
   emoji.py           # 表情 / 贴纸指令: /e, /emoji info, /emoji update
@@ -22,7 +27,8 @@ cogs/                # 命令模块 (discord.py Cog)
   antispam.py        # 反垃圾消息处理
   manage.py          # 自动删除事件处理
   perm.py            # 动态权限指令: /perm add/rm/show
-  announce.py        # 公告推送指令: /subscribe, /announce
+  announce.py        # 公告推送指令: /subscribe
+  lang.py            # 多语言指令: /lang
 modules/             # 共享服务 (非 Cog)
   audit.py           # 审计日志服务
   clear_message.py   # 批量清理消息服务
@@ -35,9 +41,10 @@ modules/             # 共享服务 (非 Cog)
 1. **初始化日志**：先配置 [Loguru](https://loguru.readthedocs.io/)，并将标准库 `logging`（含 discord.py 的日志）拦截转发到 Loguru。
 2. **加载配置**：`Config()` 读取 `config.yaml`，用 Pydantic 模型校验。校验失败或文件缺失会直接退出。
 3. **重配置日志**：根据配置的日志等级、文件路径、轮转/保留策略重新设置输出。
-4. **创建客户端**：`commands.Bot`，启用 `message_content` intent，可选配置代理。将 `config`、`audit`、`rate_limiter`、`perm_store` 等共享状态挂载到 bot 实例上。
-5. **加载 Cog**：通过 `load_extension()` 按需加载各 Cog 模块 (根据 `enabled` 开关)。
-6. **登录**：`on_ready` 时同步斜杠指令、同步表情列表。
+4. **创建客户端**：`commands.Bot`，启用 `message_content` intent，可选配置代理。将 `config`、`audit`、`rate_limiter`、`perm_store`、`lang_store` 等共享状态挂载到 bot 实例上。
+5. **注册翻译器**：`tree.set_translator(I18nTranslator())`，用于斜杠命令 / 参数描述的本地化。
+6. **加载 Cog**：通过 `load_extension()` 按需加载各 Cog 模块 (根据 `enabled` 开关)。
+7. **登录**：`on_ready` 时同步斜杠指令、同步表情列表。
 
 ## 核心设计
 
@@ -71,6 +78,15 @@ class EmojiCog(commands.Cog):
 ### 声明式权限控制
 
 通过 `@u.requires(Permission.MOD)` 装饰器统一进行权限判定，支持 `config.yaml` + `perm.yaml` 双层权限。详见 [权限系统](/guide/permissions)。
+
+### 多语言 (i18n)
+
+所有面向用户的文本均通过 `lang/zh.yaml`（默认）与 `lang/en.yaml` 提供翻译，不在代码中硬编码：
+
+- **运行时消息**：按 `用户 > 服务器 > 默认(zh)` 优先级解析语言（`i18n.lang_of` + `LangStore.resolve`），由 `/lang` 设置。
+- **斜杠命令 / 参数描述**：用 `i18n.ls("ns.key")` 包装，注册英文为基准值，`I18nTranslator` 在 `tree.sync()` 时按 Discord 客户端 locale 提供本地化（命令名称保持不变）。
+
+详见[多语言 (lang)](/modules/lang)。
 
 ### 双命令模式
 
@@ -107,6 +123,7 @@ class EmojiCog(commands.Cog):
 | [管理指令](/modules/admin) | — | 指令 | 指令同步 `/sync`、热重载 `/reload` |
 | [动态权限](/modules/perm) | `perm` | 指令 | `/perm add/rm/show` 权限规则管理 |
 | [公告推送](/modules/announce) | `announce` | 指令 | `/subscribe` 关注公告频道 |
+| [多语言](/modules/lang) | —（始终启用） | 指令 | `/lang` 切换用户 / 服务器语言 |
 | [自动管理](/modules/manage) | `rmmsg` / `rmtodo` | 事件 | 自动删除消息 |
 | [反垃圾](/modules/antispam) | `antispam` | 事件 | 频道级反垃圾规则 |
 | [审计日志](/modules/audit) | `audit` | 服务 | 记录管理操作到指定频道 |

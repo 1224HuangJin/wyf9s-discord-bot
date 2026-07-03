@@ -4,6 +4,7 @@ from discord import app_commands
 from discord.ext import commands
 
 from modules.audit import AuditLogger
+from i18n import t as _t, lang_of, ls
 import utils as u
 
 
@@ -29,15 +30,17 @@ class VoiceCog(commands.Cog):
         self.bot = bot
         self.c = bot.config  # ty:ignore[unresolved-attribute]
         self.audit: AuditLogger | None = getattr(bot, "audit", None)
+        self.lang_store = getattr(bot, "lang_store", None)
+
+    def _tr(self, source, key: str, **kwargs) -> str:
+        return _t(key, lang_of(source, self.lang_store), **kwargs)
 
     # ========== Slash Group: /vc ==========
 
-    vc_group = app_commands.Group(name="vc", description="Voice channel control")
+    vc_group = app_commands.Group(name="vc", description=ls("voice.cmd_group_desc"))
 
-    @vc_group.command(
-        name="join", description="[MOD] Join a voice channel (yours or specified)"
-    )
-    @app_commands.describe(channel="Voice channel to join (default: your current)")
+    @vc_group.command(name="join", description=ls("voice.cmd_join_desc"))
+    @app_commands.describe(channel=ls("voice.param_join_channel"))
     @u.requires(_voice_permission, perm_module="voice")
     async def vc_join(
         self,
@@ -46,7 +49,7 @@ class VoiceCog(commands.Cog):
     ):
         await self._handle_joinvc(interaction, channel)
 
-    @vc_group.command(name="leave", description="[MOD] Leave current voice channel")
+    @vc_group.command(name="leave", description=ls("voice.cmd_leave_desc"))
     @u.requires(_voice_permission, perm_module="voice")
     async def vc_leave(self, interaction: discord.Interaction):
         await self._handle_leavevc(interaction)
@@ -55,7 +58,7 @@ class VoiceCog(commands.Cog):
 
     @commands.group(name="vc", invoke_without_command=True)
     async def prefix_vc(self, ctx: commands.Context):
-        await ctx.send("Use subcommands: `vc join [channel]`, `vc leave`")
+        await ctx.send(self._tr(ctx, "voice.usage_prefix"))
 
     @prefix_vc.command(name="join")
     @u.requires(_voice_permission, perm_module="voice")
@@ -80,7 +83,7 @@ class VoiceCog(commands.Cog):
             ):
                 await u.send_msg(
                     source,
-                    "Join a voice channel first, or specify one",
+                    self._tr(source, "voice.join_first"),
                     ephemeral=True,
                     delete_after=10,
                 )
@@ -89,7 +92,10 @@ class VoiceCog(commands.Cog):
 
         if not isinstance(channel, discord.VoiceChannel):
             await u.send_msg(
-                source, "Target is not a voice channel", ephemeral=True, delete_after=10
+                source,
+                self._tr(source, "voice.not_voice_channel"),
+                ephemeral=True,
+                delete_after=10,
             )
             return
 
@@ -102,17 +108,21 @@ class VoiceCog(commands.Cog):
                 ):
                     await u.send_msg(
                         source,
-                        f"Already in **{channel.name}**",
+                        self._tr(source, "voice.already_in", channel=channel.name),
                         ephemeral=True,
                         delete_after=10,
                     )
                     return
                 await guild.voice_client.disconnect(force=False)
                 await channel.connect(self_deaf=True, self_mute=True)
-                await u.send_msg(source, f"Moved to **{channel.name}**")
+                await u.send_msg(
+                    source, self._tr(source, "voice.moved_to", channel=channel.name)
+                )
             else:
                 await channel.connect(self_deaf=True, self_mute=True)
-                await u.send_msg(source, f"Joined **{channel.name}**")
+                await u.send_msg(
+                    source, self._tr(source, "voice.joined", channel=channel.name)
+                )
 
             await self.bot.change_presence(
                 activity=discord.Activity(
@@ -132,7 +142,7 @@ class VoiceCog(commands.Cog):
             if exc.code == 4017:
                 await u.send_msg(
                     source,
-                    "Channel requires DAVE encryption, connection failed",
+                    self._tr(source, "voice.dave_failed"),
                     ephemeral=True,
                     delete_after=10,
                 )
@@ -140,13 +150,16 @@ class VoiceCog(commands.Cog):
                 raise
         except discord.ClientException as e:
             await u.send_msg(
-                source, f"Connection failed: {e}", ephemeral=True, delete_after=10
+                source,
+                self._tr(source, "voice.connect_failed", error=e),
+                ephemeral=True,
+                delete_after=10,
             )
             l.error(f"Failed to join voice: {e}")
         except Exception as e:
             await u.send_msg(
                 source,
-                f"Error: {type(e).__name__}",
+                self._tr(source, "voice.error_generic", error=type(e).__name__),
                 ephemeral=True,
                 delete_after=10,
             )
@@ -158,14 +171,17 @@ class VoiceCog(commands.Cog):
         guild = source.guild
         if not guild or not guild.voice_client:
             await u.send_msg(
-                source, "Not in any voice channel", ephemeral=True, delete_after=10
+                source,
+                self._tr(source, "voice.not_in_voice"),
+                ephemeral=True,
+                delete_after=10,
             )
             return
 
         if not isinstance(guild.voice_client.channel, discord.VoiceChannel):
             await u.send_msg(
                 source,
-                "Not in a valid voice channel",
+                self._tr(source, "voice.not_valid_voice"),
                 ephemeral=True,
                 delete_after=10,
             )
@@ -173,11 +189,12 @@ class VoiceCog(commands.Cog):
 
         channel_name = guild.voice_client.channel.name
         await guild.voice_client.disconnect(force=False)
-        await u.send_msg(source, f"Left **{channel_name}**")
+        await u.send_msg(source, self._tr(source, "voice.left", channel=channel_name))
 
         await self.bot.change_presence(
             activity=discord.Activity(
-                type=discord.ActivityType.watching, name="Idle..."
+                type=discord.ActivityType.watching,
+                name=self._tr(source, "voice.idle_status"),
             )
         )
         l.info(f"Bot left voice: {channel_name}")

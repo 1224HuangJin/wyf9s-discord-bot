@@ -6,6 +6,7 @@ from discord.ext import commands
 from loguru import logger as l
 
 from modules.audit import AuditLogger
+from i18n import t as _t, lang_of, ls
 import utils as u
 from perm import PermStore
 
@@ -29,19 +30,23 @@ class PermCog(commands.Cog):
         self.audit: AuditLogger | None = getattr(bot, "audit", None)
         self.perm_store: PermStore = getattr(bot, "perm_store", PermStore())
         bot.perm_store = self.perm_store  # ty:ignore[unresolved-attribute]
+        self.lang_store = getattr(bot, "lang_store", None)
+
+    def _tr(self, source, key: str, **kwargs) -> str:
+        return _t(key, lang_of(source, self.lang_store), **kwargs)
 
     # ========== /perm list ==========
 
-    @app_commands.command(name="perm", description="[ADMIN] Manage dynamic permissions")
+    @app_commands.command(name="perm", description=ls("perm.cmd_desc"))
     @app_commands.describe(
-        action="Action: add / rm / show",
-        user="User(s): ID or name, comma-separated (required for add)",
-        module="Module name (mutually exclusive with command)",
-        command="Command name (mutually exclusive with module)",
-        global_scope="Apply globally across all servers (default: False)",
-        rid="Rule ID to remove (for rm)",
-        scope='Show scope: "global" or "server" (default: server)',
-        private="Send result via DM instead of channel",
+        action=ls("perm.param_action"),
+        user=ls("perm.param_user"),
+        module=ls("perm.param_module"),
+        command=ls("perm.param_command"),
+        global_scope=ls("perm.param_global_scope"),
+        rid=ls("perm.param_rid"),
+        scope=ls("perm.param_scope"),
+        private=ls("perm.param_private"),
     )
     @app_commands.choices(
         action=[
@@ -98,7 +103,7 @@ class PermCog(commands.Cog):
         else:
             await self._reply(
                 source,
-                ":x: **Invalid action. Use: add / rm / show**",
+                self._tr(source, "perm.invalid_action"),
                 ephemeral=True,
                 private=False,
             )
@@ -120,7 +125,7 @@ class PermCog(commands.Cog):
         if not is_config and global_scope:
             await self._reply(
                 source,
-                ":x: **Server admins cannot add global rules**",
+                self._tr(source, "perm.no_global_for_server_admin"),
                 ephemeral=True,
                 private=private,
             )
@@ -129,7 +134,7 @@ class PermCog(commands.Cog):
         if not user:
             await self._reply(
                 source,
-                ":x: **`user` is required for add**",
+                self._tr(source, "perm.user_required"),
                 ephemeral=True,
                 private=private,
             )
@@ -138,7 +143,7 @@ class PermCog(commands.Cog):
         if module and command:
             await self._reply(
                 source,
-                ":x: **`module` and `command` are mutually exclusive**",
+                self._tr(source, "perm.module_command_exclusive"),
                 ephemeral=True,
                 private=private,
             )
@@ -147,7 +152,7 @@ class PermCog(commands.Cog):
         if not module and not command:
             await self._reply(
                 source,
-                ":x: **One of `module` or `command` is required**",
+                self._tr(source, "perm.module_or_command_required"),
                 ephemeral=True,
                 private=private,
             )
@@ -157,7 +162,7 @@ class PermCog(commands.Cog):
         if not users:
             await self._reply(
                 source,
-                ":x: **No valid users parsed**",
+                self._tr(source, "perm.no_valid_users"),
                 ephemeral=True,
                 private=private,
             )
@@ -178,19 +183,27 @@ class PermCog(commands.Cog):
         config_users = {str(x) for x in self.c.admins.users}
         locked_users = [uid for uid in users if uid in config_users]
 
+        scope_label = self._tr(
+            source, "perm.scope_global" if global_scope else "perm.scope_server"
+        )
         msg_lines = [
-            f":white_check_mark: **Permission rule added** (ID: `{rule.id}`)",
-            f"> Users: `{', '.join(users)}`",
+            self._tr(source, "perm.rule_added", id=rule.id),
+            self._tr(source, "perm.rule_added_users", users=", ".join(users)),
         ]
         if module:
-            msg_lines.append(f"> Module: `{module}`")
+            msg_lines.append(self._tr(source, "perm.rule_added_module", module=module))
         if command:
-            msg_lines.append(f"> Command: `{command}`")
-        msg_lines.append(f"> Scope: {'global' if global_scope else 'server'}")
+            msg_lines.append(
+                self._tr(source, "perm.rule_added_command", command=command)
+            )
+        msg_lines.append(self._tr(source, "perm.rule_added_scope", scope=scope_label))
         if locked_users:
             msg_lines.append(
-                f"> :lock: **Note**: user(s) `{', '.join(locked_users)}` "
-                f"also in config.yaml (config takes precedence)"
+                self._tr(
+                    source,
+                    "perm.rule_added_locked_note",
+                    users=", ".join(locked_users),
+                )
             )
 
         await self._reply(
@@ -227,7 +240,7 @@ class PermCog(commands.Cog):
             if not removed:
                 await self._reply(
                     source,
-                    f":x: **Rule ID `{rid}` not found**",
+                    self._tr(source, "perm.rule_not_found", rid=rid),
                     ephemeral=True,
                     private=private,
                 )
@@ -235,9 +248,13 @@ class PermCog(commands.Cog):
             r = removed[0]
             await self._reply(
                 source,
-                f":white_check_mark: **Removed rule `{rid}`**: "
-                f"users=`{', '.join(r.users)}` "
-                f"{'module=' + r.module if r.module else 'command=' + r.command if r.command else ''}",
+                self._tr(
+                    source,
+                    "perm.rule_removed",
+                    rid=rid,
+                    users=", ".join(r.users),
+                    target=self._rule_target(r),
+                ),
                 ephemeral=False,
                 private=private,
             )
@@ -254,7 +271,7 @@ class PermCog(commands.Cog):
         if not user and not module and not command:
             await self._reply(
                 source,
-                ":x: **Specify `rid` or at least one of `user`/`module`/`command`**",
+                self._tr(source, "perm.rm_need_args"),
                 ephemeral=True,
                 private=private,
             )
@@ -273,7 +290,7 @@ class PermCog(commands.Cog):
         if not matches:
             await self._reply(
                 source,
-                ":x: **No matching rules found**",
+                self._tr(source, "perm.no_matching_rules"),
                 ephemeral=True,
                 private=private,
             )
@@ -284,11 +301,10 @@ class PermCog(commands.Cog):
             self.perm_store.remove(rid=m.id)
             removed.append(m)
 
-        lines = [f":white_check_mark: **Removed {len(removed)} rule(s)**:"]
+        lines = [self._tr(source, "perm.removed_count", count=len(removed))]
         for r in removed:
             lines.append(
-                f"  `{r.id}`: users=`{', '.join(r.users)}` "
-                f"{'module=' + r.module if r.module else 'command=' + r.command if r.command else ''}"
+                f"  `{r.id}`: users=`{', '.join(r.users)}` {self._rule_target(r)}"
             )
 
         await self._reply(source, "\n".join(lines), ephemeral=False, private=private)
@@ -323,7 +339,12 @@ class PermCog(commands.Cog):
                     uid = str(member.id)
                     if uid not in config_admins:
                         srv_admin_lines.append(
-                            f"> :lock: :homes: Server Admin: `{member.name}` (`{uid}`)"
+                            self._tr(
+                                source,
+                                "perm.show_builtin_admin",
+                                name=member.name,
+                                id=uid,
+                            )
                         )
 
         rules = self.perm_store.find(
@@ -337,18 +358,18 @@ class PermCog(commands.Cog):
         if not rules and not srv_admin_lines:
             await self._reply(
                 source,
-                ":information_source: **No permission rules found**",
+                self._tr(source, "perm.no_rules"),
                 ephemeral=True,
                 private=private,
             )
             return
 
-        lines = [f"**Permission Rules** (scope: `{scope}`, {len(rules)} rule(s)):"]
+        lines = [self._tr(source, "perm.show_header", scope=scope, count=len(rules))]
         if srv_admin_lines:
-            lines.append("**Built-in (Server Admins):**")
+            lines.append(self._tr(source, "perm.show_builtin_header"))
             lines.extend(srv_admin_lines)
             if rules:
-                lines.append("**Dynamic Rules:**")
+                lines.append(self._tr(source, "perm.show_dynamic_header"))
         config_users = {str(x) for x in self.c.admins.users}
         for r in rules:
             locked = any(uid in config_users for uid in r.users)
@@ -358,7 +379,7 @@ class PermCog(commands.Cog):
             rule_line = (
                 f"`{r.id}`{lock_str} {scope_str} "
                 f"users=`{', '.join(r.users)}` "
-                f"{'module=' + r.module if r.module else 'command=' + r.command if r.command else ''}"
+                f"{self._rule_target(r)}"
             )
             lines.append(rule_line)
 
@@ -369,13 +390,21 @@ class PermCog(commands.Cog):
             file = discord.File(fp=buf, filename="permissions.md")
             await self._reply(
                 source,
-                "Permissions too long, sent as file:",
+                self._tr(source, "perm.too_long"),
                 file=file,
                 ephemeral=False,
                 private=private,
             )
         else:
             await self._reply(source, msg, ephemeral=False, private=private)
+
+    @staticmethod
+    def _rule_target(r) -> str:
+        if r.module:
+            return f"module={r.module}"
+        if r.command:
+            return f"command={r.command}"
+        return ""
 
     async def _reply(
         self,
@@ -395,15 +424,15 @@ class PermCog(commands.Cog):
                 await dm.send(content=content, file=file)
                 if not source.response.is_done():
                     await source.response.send_message(
-                        ":white_check_mark: **Sent via DM**", ephemeral=True
+                        self._tr(source, "perm.sent_via_dm"), ephemeral=True
                     )
                 else:
                     await source.followup.send(
-                        ":white_check_mark: **Sent via DM**", ephemeral=True
+                        self._tr(source, "perm.sent_via_dm"), ephemeral=True
                     )
             except discord.Forbidden:
                 await self._direct_reply(
-                    source, ":x: **Cannot DM you (DMs closed)**", ephemeral=True
+                    source, self._tr(source, "perm.cannot_dm"), ephemeral=True
                 )
             return
 
@@ -411,9 +440,9 @@ class PermCog(commands.Cog):
             try:
                 dm = await actor.create_dm()
                 await dm.send(content=content, file=file)
-                await source.send(":white_check_mark: **Sent via DM**", delete_after=10)
+                await source.send(self._tr(source, "perm.sent_via_dm"), delete_after=10)
             except discord.Forbidden:
-                await source.send(":x: **Cannot DM you (DMs closed)**", delete_after=10)
+                await source.send(self._tr(source, "perm.cannot_dm"), delete_after=10)
             return
 
         await self._direct_reply(source, content, ephemeral=ephemeral, file=file)

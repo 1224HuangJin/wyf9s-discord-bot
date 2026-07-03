@@ -8,6 +8,7 @@ from discord.ext import commands
 from config import _SpamCatcherRuleConfigModel
 from modules.audit import AuditLogger
 from modules.clear_message import CLEAR_MESSAGE_MARKER, ClearMessageService
+from i18n import t as _t
 
 
 class AntiSpamCog(commands.Cog):
@@ -15,9 +16,15 @@ class AntiSpamCog(commands.Cog):
         self.bot = bot
         self.c = bot.config  # ty:ignore[unresolved-attribute]
         self.audit: AuditLogger | None = getattr(bot, "audit", None)
+        self.lang_store = getattr(bot, "lang_store", None)
         self.clear_message = ClearMessageService(
             config=self.c, client=bot, audit=self.audit
         )
+
+    def _guild_lang(self, guild: discord.Guild | None) -> str:
+        if self.lang_store and guild:
+            return self.lang_store.resolve(0, guild.id)
+        return "zh"
 
     @commands.Cog.listener("on_message")
     async def antispam_auto_handler(self, message: discord.Message):
@@ -83,28 +90,30 @@ class AntiSpamCog(commands.Cog):
             within_minutes=within_minutes,
             scope="server",
             write_audit=False,
+            lang=self._guild_lang(guild),
         )
         return result.replace(f"\n-# {CLEAR_MESSAGE_MARKER}", "").replace(
             CLEAR_MESSAGE_MARKER, ""
         )
 
-    @staticmethod
     def _build_public_notice(
+        self,
         member: discord.Member,
         category: str,
         action_label: str,
         should_ping: bool,
     ) -> str:
+        lang = self._guild_lang(member.guild)
         mention = member.mention
         if should_ping:
-            return (
-                f":rotating_light: {mention} Account looks compromised "
-                f"- temporarily muted. Contact an admin.\n"
-                f":rotating_light: {mention} 账号疑似被盗，已被临时禁言，请联系管理员。"
-            )
-        return (
-            f":rotating_light: Antispam triggered: {mention} -> **{category}/{action_label}**\n"
-            f":rotating_light: 已触发 antispam: {mention} -> **{category}/{action_label}**"
+            return _t("antispam.public_notice_hacked", lang, mention=mention)
+        category_label = _t(f"antispam.category_{category}", lang)
+        return _t(
+            "antispam.public_notice_triggered",
+            lang,
+            mention=mention,
+            category=category_label,
+            action=action_label,
         )
 
     @staticmethod

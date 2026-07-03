@@ -7,6 +7,7 @@ from discord import app_commands
 from discord.ext import commands
 
 from modules.audit import AuditLogger
+from i18n import t as _t, lang_of, ls
 import utils as u
 
 
@@ -20,6 +21,10 @@ class AdminCog(commands.Cog):
         self.bot = bot
         self.c = bot.config  # ty:ignore[unresolved-attribute]
         self.audit: AuditLogger | None = getattr(bot, "audit", None)
+        self.lang_store = getattr(bot, "lang_store", None)
+
+    def _tr(self, source, key: str, **kwargs) -> str:
+        return _t(key, lang_of(source, self.lang_store), **kwargs)
 
     def _list_cogs(self) -> list[str]:
         cogs_dir = os.path.join(os.path.dirname(__file__))
@@ -32,13 +37,13 @@ class AdminCog(commands.Cog):
 
     # ========== /sync ==========
 
-    @app_commands.command(name="sync", description="[ADMIN] Sync slash command tree")
+    @app_commands.command(name="sync", description=ls("admin.cmd_sync_desc"))
     @u.requires(u.Permission.ADMIN)
     async def slash_sync(self, interaction: discord.Interaction):
         await interaction.response.defer()
         await self.bot.tree.sync()
         l.info("Command tree synced.")
-        await interaction.followup.send("**:white_check_mark: Slash commands synced**")
+        await interaction.followup.send(self._tr(interaction, "admin.synced"))
         if self.audit:
             await self.audit.log(
                 action="sync",
@@ -53,7 +58,7 @@ class AdminCog(commands.Cog):
     async def prefix_sync(self, ctx: commands.Context):
         await ctx.defer()
         await self.bot.tree.sync()
-        await ctx.send("**:white_check_mark: Slash commands synced**")
+        await ctx.send(self._tr(ctx, "admin.synced"))
         if self.audit:
             await self.audit.log(
                 action="sync",
@@ -68,7 +73,7 @@ class AdminCog(commands.Cog):
     async def prefix_sync_commands(self, ctx: commands.Context):
         await ctx.defer()
         await self.bot.tree.sync()
-        await ctx.send("**:white_check_mark: Slash commands synced**")
+        await ctx.send(self._tr(ctx, "admin.synced"))
         if self.audit:
             await self.audit.log(
                 action="sync-commands",
@@ -80,8 +85,8 @@ class AdminCog(commands.Cog):
 
     # ========== /reload ==========
 
-    @app_commands.command(name="reload", description="[ADMIN] Reload a cog module")
-    @app_commands.describe(module="Cog name to reload (empty to list)")
+    @app_commands.command(name="reload", description=ls("admin.cmd_reload_desc"))
+    @app_commands.describe(module=ls("admin.param_reload_module"))
     @u.requires(u.Permission.ADMIN)
     async def slash_reload(
         self, interaction: discord.Interaction, module: str | None = None
@@ -93,7 +98,11 @@ class AdminCog(commands.Cog):
             if elapsed < _RELOAD_COOLDOWN:
                 remaining = _RELOAD_COOLDOWN - elapsed
                 await interaction.response.send_message(
-                    f":hourglass: **Cooldown: wait `{remaining:.0f}s` before reloading again**",
+                    self._tr(
+                        interaction,
+                        "admin.reload_cooldown",
+                        remaining=f"{remaining:.0f}",
+                    ),
                     ephemeral=True,
                 )
                 return
@@ -111,7 +120,9 @@ class AdminCog(commands.Cog):
             if elapsed < _RELOAD_COOLDOWN:
                 remaining = _RELOAD_COOLDOWN - elapsed
                 await ctx.send(
-                    f":hourglass: **Cooldown: wait `{remaining:.0f}s`**",
+                    self._tr(
+                        ctx, "admin.reload_cooldown_short", remaining=f"{remaining:.0f}"
+                    ),
                     delete_after=10,
                 )
                 return
@@ -128,7 +139,7 @@ class AdminCog(commands.Cog):
         available = self._list_cogs()
 
         if module is None:
-            lines = [f"**Available cogs** (`{len(available)}`):"]
+            lines = [self._tr(source, "admin.available_cogs", count=len(available))]
             for name in available:
                 is_loaded = f"cogs.{name}" in self.bot.extensions
                 marker = ":green_circle:" if is_loaded else ":black_circle:"
@@ -144,7 +155,7 @@ class AdminCog(commands.Cog):
         ext_name = f"cogs.{module}"
 
         if ext_name not in self.bot.extensions and module not in available:
-            msg = f":x: **Cog `{module}` not found**"
+            msg = self._tr(source, "admin.cog_not_found", module=module)
             if is_interaction:
                 await source.followup.send(msg, ephemeral=True)
             else:
@@ -163,7 +174,7 @@ class AdminCog(commands.Cog):
                 if perm_store:
                     perm_store._load()
 
-            msg = f":white_check_mark: **Reloaded `{module}`**"
+            msg = self._tr(source, "admin.reloaded", module=module)
             l.info(f"Reloaded cog: {module}")
             if is_interaction:
                 await source.followup.send(msg)
@@ -180,7 +191,7 @@ class AdminCog(commands.Cog):
                     detail=f"Reloaded cog: {module}",
                 )
         except Exception as e:
-            msg = f":x: **Failed to reload `{module}`**: `{e}`"
+            msg = self._tr(source, "admin.reload_failed", module=module, error=e)
             l.error(f"Failed to reload cog {module}: {e}")
             if is_interaction:
                 await source.followup.send(msg, ephemeral=True)

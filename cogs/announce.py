@@ -4,6 +4,7 @@ from discord import app_commands
 from discord.ext import commands
 
 from modules.audit import AuditLogger
+from i18n import t as _t, lang_of, ls
 import utils as u
 
 
@@ -12,14 +13,18 @@ class AnnounceCog(commands.Cog):
         self.bot = bot
         self.c = bot.config  # ty:ignore[unresolved-attribute]
         self.audit: AuditLogger | None = getattr(bot, "audit", None)
+        self.lang_store = getattr(bot, "lang_store", None)
+
+    def _tr(self, source, key: str, **kwargs) -> str:
+        return _t(key, lang_of(source, self.lang_store), **kwargs)
 
     # ========== /subscribe ==========
 
     @app_commands.command(
         name="subscribe",
-        description="[MOD] Follow the announcement channel in your server",
+        description=ls("announce.cmd_desc"),
     )
-    @app_commands.describe(target="Channel to receive announcements (default: current)")
+    @app_commands.describe(target=ls("announce.param_target"))
     @u.requires(u.Permission.MOD)
     async def subscribe(
         self,
@@ -29,20 +34,20 @@ class AnnounceCog(commands.Cog):
         source_id = self.c.announce.source_channel
         if not source_id:
             await interaction.response.send_message(
-                ":x: **Announcements are not configured**", ephemeral=True
+                self._tr(interaction, "announce.not_configured"), ephemeral=True
             )
             return
 
         destination = target or interaction.channel
         if not isinstance(destination, discord.TextChannel):
             await interaction.response.send_message(
-                ":x: **Must be a text channel**", ephemeral=True
+                self._tr(interaction, "announce.must_text_channel"), ephemeral=True
             )
             return
 
         if not interaction.guild:
             await interaction.response.send_message(
-                ":x: **Server-only command**", ephemeral=True
+                self._tr(interaction, "announce.server_only"), ephemeral=True
             )
             return
 
@@ -52,20 +57,20 @@ class AnnounceCog(commands.Cog):
                 source = await self.bot.fetch_channel(source_id)
             except (discord.NotFound, discord.Forbidden):
                 await interaction.response.send_message(
-                    ":x: **Announcement channel not found**", ephemeral=True
+                    self._tr(interaction, "announce.channel_not_found"), ephemeral=True
                 )
                 return
 
         if not isinstance(source, discord.TextChannel):
             await interaction.response.send_message(
-                ":x: **Configured source channel is not a text channel**",
+                self._tr(interaction, "announce.source_not_text"),
                 ephemeral=True,
             )
             return
 
         if not source.is_news():
             await interaction.response.send_message(
-                ":x: **Configured source channel is not an announcement/news channel**",
+                self._tr(interaction, "announce.source_not_news"),
                 ephemeral=True,
             )
             return
@@ -77,20 +82,19 @@ class AnnounceCog(commands.Cog):
             )
         except discord.Forbidden:
             await interaction.response.send_message(
-                ":x: **Bot needs Manage Webhooks permission in the target channel**",
+                self._tr(interaction, "announce.need_manage_webhooks"),
                 ephemeral=True,
             )
             return
         except discord.HTTPException as e:
             await interaction.response.send_message(
-                f":x: **Failed to follow:** `{e}`", ephemeral=True
+                self._tr(interaction, "announce.follow_failed", error=e),
+                ephemeral=True,
             )
             return
 
         await interaction.response.send_message(
-            f":white_check_mark: **{destination.mention} now follows the announcement channel.**\n"
-            f"> Messages published there will appear here.\n"
-            f"> To unsubscribe, delete the webhook in channel settings."
+            self._tr(interaction, "announce.success", channel=destination.mention)
         )
 
         if self.audit:

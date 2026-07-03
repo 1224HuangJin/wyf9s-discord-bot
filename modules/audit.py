@@ -61,7 +61,7 @@ class AntispamActionView(discord.ui.View):
         guild = interaction.client.get_guild(self.guild_id)
         if guild is None:
             await interaction.response.send_message(
-                ":x: Internal error: guild not found", ephemeral=True
+                _t("antispam.guild_not_found", lang), ephemeral=True
             )
             return
         if not (
@@ -82,7 +82,7 @@ class AntispamActionView(discord.ui.View):
             msg = _t(
                 "antispam.snapshot_button_executed",
                 lang,
-                action="Unban",
+                action=_t("antispam.action_unban", lang),
                 user=self.target_name,
             )
             await interaction.response.send_message(
@@ -90,7 +90,7 @@ class AntispamActionView(discord.ui.View):
             )
         except discord.NotFound:
             await interaction.response.send_message(
-                ":x: User not found or not banned", ephemeral=True
+                _t("antispam.user_not_found_ban", lang), ephemeral=True
             )
         except discord.Forbidden:
             await interaction.response.send_message(
@@ -108,7 +108,7 @@ class AntispamActionView(discord.ui.View):
         guild = interaction.client.get_guild(self.guild_id)
         if guild is None:
             await interaction.response.send_message(
-                ":x: Internal error: guild not found", ephemeral=True
+                _t("antispam.guild_not_found", lang), ephemeral=True
             )
             return
         if not (
@@ -129,7 +129,7 @@ class AntispamActionView(discord.ui.View):
             msg = _t(
                 "antispam.snapshot_button_executed",
                 lang,
-                action="Unmute",
+                action=_t("antispam.action_unmute", lang),
                 user=self.target_name,
             )
             await interaction.response.send_message(
@@ -137,7 +137,7 @@ class AntispamActionView(discord.ui.View):
             )
         except discord.NotFound:
             await interaction.response.send_message(
-                ":x: Member not found in this server", ephemeral=True
+                _t("antispam.member_not_found", lang), ephemeral=True
             )
         except discord.Forbidden:
             await interaction.response.send_message(
@@ -326,20 +326,20 @@ class AuditLogger:
 
         content = message.content or ""
         if not content and message.embeds:
-            content = "[Embed message]"
+            content = _t("audit.snapshot_content_embed", lang)
         if not content and message.attachments:
-            content = "[Attachment-only message]"
+            content = _t("audit.snapshot_content_attachment", lang)
         if not content:
             content = _t("antispam.snapshot_content_empty", lang)
 
         embed.add_field(
-            name="Content",
+            name=_t("audit.snapshot_field_content", lang),
             value=content[:1024] if len(content) <= 1024 else content[:1021] + "...",
             inline=False,
         )
 
         embed.add_field(
-            name="Author",
+            name=_t("audit.snapshot_field_author", lang),
             value=f"{message.author} (`{message.author.id}`)",
             inline=True,
         )
@@ -367,7 +367,7 @@ class AuditLogger:
 
         if message.jump_url:
             embed.add_field(
-                name="Jump URL",
+                name=_t("audit.snapshot_field_jump", lang),
                 value=message.jump_url,
                 inline=False,
             )
@@ -375,7 +375,7 @@ class AuditLogger:
         if message.author.avatar:
             embed.set_thumbnail(url=message.author.avatar.url)
 
-        embed.set_footer(text=f"Message ID: {message.id}")
+        embed.set_footer(text=_t("audit.snapshot_footer", lang, id=message.id))
         return embed
 
     async def log_antispam_with_snapshot(

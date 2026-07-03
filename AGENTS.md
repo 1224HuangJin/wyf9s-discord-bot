@@ -21,17 +21,28 @@ config.py            # Pydantic config models + loader
 config.yaml          # Runtime config (gitignored)
 config.example.yaml  # Example config with docs
 schedules.yaml       # Scheduled lock data (auto-generated)
-main.py              # Bot entry point, module loading
-utils.py             # Shared utilities
-modules/
-  audit.py           # Audit logging service (shared)
+main.py              # Bot entry point, cog loading, translator setup
+utils.py             # Shared utilities (perm decorators, rate limiter, send_msg)
+i18n.py              # i18n runtime (t/lang_of) + Discord command localization
+lang_store.py        # Per-user / per-guild language preference persistence
+lang_settings.yaml   # Saved language preferences (auto-generated, gitignored)
+lang/
+  zh.yaml            # Chinese strings (default language)
+  en.yaml            # English strings
+cogs/                # Command modules (discord.py Cogs, loaded in main.py COG_LIST)
   emoji.py           # Emoji/sticker commands
-  tools.py           # Utility/moderation commands
+  tools.py           # Utility/moderation commands (+ clear-message)
   lock.py            # Channel lock/unlock + scheduled locks
-  manage.py          # Auto-delete event handlers
   voice.py           # Voice channel commands
   antispam.py        # Anti-spam message handler
-  clear_message.py   # Bulk message clearing service (shared)
+  manage.py          # Auto-delete event handlers
+  admin.py           # /sync, /reload
+  perm.py            # /perm dynamic permission management
+  announce.py        # /subscribe announcement following
+  lang.py            # /lang language preference
+modules/             # Shared, command-less services used by cogs
+  audit.py           # Audit logging service (+ antispam action view)
+  clear_message.py   # Bulk message clearing service
 ```
 
 ## Config System
@@ -43,33 +54,64 @@ modules/
 
 ## Module Pattern
 
-Modules are plain classes (not Cogs). Commands registered in `__init__`:
+Command modules are discord.py **Cogs** (`commands.Cog` subclasses) in `cogs/`, loaded
+via `main.py` `COG_LIST`. Each cog reads shared state from the `bot` instance and defines
+both slash and prefix commands that funnel into a shared `_handle_*` method:
 
 ```python
-class MyModule:
-    def __init__(self, config: ConfigModel, client: commands.Bot, audit: AuditLogger | None):
-        if self.c.mymodule.slash:
-            self._register_slash_commands(client)
-        if self.c.mymodule.prefix:
-            self._register_prefix_commands(client)
+class MyCog(commands.Cog):
+    def __init__(self, bot: commands.Bot):
+        self.bot = bot
+        self.c = bot.config
+        self.audit = getattr(bot, "audit", None)
+        self.lang_store = getattr(bot, "lang_store", None)
 
-    def _register_slash_commands(self, client):
-        @client.tree.command(name='cmd', description='...')
-        async def handler(interaction: discord.Interaction):
-            await self._handle_cmd(interaction)
+    def _tr(self, source, key: str, **kwargs) -> str:
+        return _t(key, lang_of(source, self.lang_store), **kwargs)
 
-    def _register_prefix_commands(self, client):
-        @client.command(name='cmd')
-        async def handler(ctx: commands.Context):
-            await self._handle_cmd(ctx)
+    @app_commands.command(name="cmd", description=ls("mycog.cmd_desc"))
+    async def slash_cmd(self, interaction: discord.Interaction):
+        await self._handle_cmd(interaction)
+
+    @commands.command(name="cmd")
+    async def prefix_cmd(self, ctx: commands.Context):
+        await self._handle_cmd(ctx)
 
     async def _handle_cmd(self, source):
         # Shared logic for both slash and prefix
-        if isinstance(source, discord.Interaction):
-            await source.response.send_message(msg)
-        else:
-            await source.send(msg)
+        await u.send_msg(source, self._tr(source, "mycog.done"))
+
+async def setup(bot: commands.Bot):
+    if bot.config.mycog.enabled:
+        await bot.add_cog(MyCog(bot))
 ```
+
+- Register the cog in `COG_LIST` in `main.py`.
+- `setup()` gates loading on the module's `enabled` flag.
+- Shared per-bot state (audit, rate limiter, perm store, lang store, emoji cache,
+  schedule store) is stored on the `bot` instance so it survives cog reloads.
+
+## Internationalization (i18n)
+
+All user-facing text must be localized. Never hardcode display strings.
+
+- Strings live in `lang/zh.yaml` (default) and `lang/en.yaml`, keyed by `namespace.key`.
+  Both files must stay in key-parity; add a key to both when introducing text.
+- `f`-string interpolation uses `{name}` placeholders resolved via `str.format`.
+- **Runtime messages** (command replies, errors): resolve the language per user with
+  `self._tr(source, "ns.key", **fmt)` (helper wraps `i18n.t(key, lang_of(source, lang_store))`).
+  For channel/guild-scoped messages with no user (scheduled locks, antispam public
+  notices, audit embeds) resolve via `lang_store.resolve(0, guild.id)`.
+- **Slash command & parameter descriptions**: wrap with `ls("ns.key")` from `i18n`.
+  These register the English string as the base value; `I18nTranslator` (set in
+  `main.py` via `tree.set_translator`) provides per-locale translations at `tree.sync()`
+  time. Command/group **names** stay plain ASCII strings (not localized).
+- `lang_of(source, lang_store)` resolves the effective language from an
+  `Interaction`/`Context`; `LangStore.resolve(user_id, guild_id)` applies the
+  user > guild > default (`zh`) precedence.
+- The `/lang` command (`cogs/lang.py`) lets users/servers set their preference.
+- Language ↔ Discord locale mapping lives in `i18n._LOCALE_TO_LANG`; extend
+  `SUPPORTED_LANGS` + add a `lang/<code>.yaml` to add a language.
 
 ## Type Checking Notes
 
@@ -80,8 +122,10 @@ class MyModule:
 ## Documentation
 
 - After modifying a module or adding new configuration fields, update `config.example.yaml` and sync `README.md` if needed.
+- When adding/changing user-facing text, update **both** `lang/zh.yaml` and `lang/en.yaml`.
 - `config.example.yaml` — example config with inline docs (the source of truth for config fields)
 - `README.md` — user-facing feature overview
+- `docs/` — VitePress site (guides + per-module pages); keep command tables and the i18n guide in sync
 - `AGENTS.md` — developer/agent instructions only (keep non-overlapping with README)
 
 ## Error Handling

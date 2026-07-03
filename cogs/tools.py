@@ -11,6 +11,7 @@ from discord.ext import commands
 
 from modules.audit import AuditLogger
 from modules.clear_message import CLEAR_MESSAGE_MARKER, ClearMessageService
+from i18n import t as _t, lang_of, ls
 import utils as u
 
 
@@ -28,7 +29,8 @@ class ClearMessageResultView(discord.ui.View):
     async def btn_ok(self, interaction: discord.Interaction, button: discord.ui.Button):
         if not u.is_mod(interaction.user, self.tools.c, self.guild):
             await interaction.response.send_message(
-                ":x: **No permission** :x:", ephemeral=True
+                self.tools._tr(interaction, "tools.clear_btn_no_permission"),
+                ephemeral=True,
             )
             return
         self.stop()
@@ -49,64 +51,45 @@ class ClearMessageResultView(discord.ui.View):
             pass
 
 
-class ConfirmClearView(discord.ui.View):
-    def __init__(self):
-        super().__init__(timeout=60)
-        self.confirmed: bool | None = None
-
-    @discord.ui.button(label="Confirm", style=discord.ButtonStyle.danger)
-    async def btn_confirm(
-        self, interaction: discord.Interaction, button: discord.ui.Button
-    ):
-        self.confirmed = True
-        self.stop()
-        await interaction.response.defer()
-        await interaction.edit_original_response(
-            content=":broom: **Running...**", view=None
-        )
-
-    @discord.ui.button(label="Cancel", style=discord.ButtonStyle.secondary)
-    async def btn_cancel(
-        self, interaction: discord.Interaction, button: discord.ui.Button
-    ):
-        self.confirmed = False
-        self.stop()
-        await interaction.response.defer()
-        await interaction.edit_original_response(content=":x: **Cancelled**", view=None)
-
-    async def on_timeout(self):
-        self.confirmed = False
-
-
 class ToolsCog(commands.Cog):
     def __init__(self, bot: commands.Bot):
         self.bot = bot
         self.c = bot.config  # ty:ignore[unresolved-attribute]
         self.audit: AuditLogger | None = getattr(bot, "audit", None)
         self.rate_limiter = getattr(bot, "rate_limiter", u.RateLimiter())
+        self.lang_store = getattr(bot, "lang_store", None)
         self.clear_message = ClearMessageService(
             config=self.c, client=bot, audit=self.audit
         )
 
+    def _tr(self, source, key: str, **kwargs) -> str:
+        return _t(key, lang_of(source, self.lang_store), **kwargs)
+
+    def _lang(self, source) -> str:
+        return lang_of(source, self.lang_store)
+
     # ========== Slash Commands ==========
 
-    @app_commands.command(name="random", description="Generate a random number")
-    @app_commands.describe(min_num="Min (default: 1)", max_num="Max (default: 114514)")
+    @app_commands.command(name="random", description=ls("tools.cmd_random_desc"))
+    @app_commands.describe(
+        min_num=ls("tools.param_random_min"), max_num=ls("tools.param_random_max")
+    )
     async def slash_random(
         self, interaction: discord.Interaction, min_num: int = 1, max_num: int = 114514
     ):
         await self._handle_random(interaction, min_num, max_num)
 
-    @app_commands.command(name="uuid", description="Generate a UUID")
-    @app_commands.describe(delete_after="Seconds before deletion")
+    @app_commands.command(name="uuid", description=ls("tools.cmd_uuid_desc"))
+    @app_commands.describe(delete_after=ls("tools.param_uuid_delete_after"))
     async def slash_uuid(self, interaction: discord.Interaction, delete_after: int = 0):
         if delete_after <= 0:
             delete_after = self.c.secret_message_delay
         await self._handle_uuid(interaction, delete_after)
 
-    @app_commands.command(name="delete", description="[MOD] Delete a message by ID")
+    @app_commands.command(name="delete", description=ls("tools.cmd_delete_desc"))
     @app_commands.describe(
-        message_id="Message ID", show_to_public="Show result publicly"
+        message_id=ls("tools.param_delete_message_id"),
+        show_to_public=ls("tools.param_delete_show_public"),
     )
     @u.requires(u.Permission.MOD, perm_module="tools")
     async def slash_delete(
@@ -117,19 +100,19 @@ class ToolsCog(commands.Cog):
     ):
         await self._handle_delete(interaction, message_id, show_to_public)
 
-    @app_commands.command(name="clear-message", description="[MOD] Bulk clear messages")
+    @app_commands.command(name="clear-message", description=ls("tools.cmd_clear_desc"))
     @app_commands.describe(
-        user="Target user",
-        user_ids="Target user IDs (comma-separated)",
-        webhook_ids="Target webhook IDs (comma-separated)",
-        nick_pattern='Nickname pattern (fnmatch, e.g. "*bot*")',
-        content_pattern='Content pattern (fnmatch, e.g. "*error*")',
-        message_count="Max messages per channel (0 = unlimited)",
-        within_minutes="Only messages within N minutes",
-        scope='"channel" (default) or "server"',
-        channel="Target channel (scope=channel only)",
-        start='Start: message ID or time (e.g. "30m"/"2h"/"1d"/ISO)',
-        end="End: message ID or time",
+        user=ls("tools.param_clear_user"),
+        user_ids=ls("tools.param_clear_user_ids"),
+        webhook_ids=ls("tools.param_clear_webhook_ids"),
+        nick_pattern=ls("tools.param_clear_nick_pattern"),
+        content_pattern=ls("tools.param_clear_content_pattern"),
+        message_count=ls("tools.param_clear_message_count"),
+        within_minutes=ls("tools.param_clear_within_minutes"),
+        scope=ls("tools.param_clear_scope"),
+        channel=ls("tools.param_clear_channel"),
+        start=ls("tools.param_clear_start"),
+        end=ls("tools.param_clear_end"),
     )
     @u.requires(u.Permission.MOD, perm_module="tools")
     async def slash_clear_message(
@@ -155,6 +138,7 @@ class ToolsCog(commands.Cog):
             interaction.user,
             interaction.guild,
             interaction.channel,
+            lang=self._lang(interaction),
             user=user,
             user_ids=user_ids,
             webhook_ids=webhook_ids,
@@ -174,13 +158,13 @@ class ToolsCog(commands.Cog):
         )
         await interaction.followup.send(result, ephemeral=True, view=view)  # ty:ignore[invalid-argument-type]
 
-    @app_commands.command(name="move-channel", description="[MOD] Move a channel")
+    @app_commands.command(name="move-channel", description=ls("tools.cmd_move_desc"))
     @app_commands.describe(
-        target_channel="Channel to move (default: current)",
-        category="Target category",
-        before="Place before this channel",
-        after="Place after this channel",
-        sync_perm="Sync category permissions (default: True)",
+        target_channel=ls("tools.param_move_target"),
+        category=ls("tools.param_move_category"),
+        before=ls("tools.param_move_before"),
+        after=ls("tools.param_move_after"),
+        sync_perm=ls("tools.param_move_sync_perm"),
     )
     @u.requires(u.Permission.MOD, perm_module="tools")
     async def slash_move_channel(
@@ -196,8 +180,10 @@ class ToolsCog(commands.Cog):
             interaction, target_channel, category, before, after, sync_perm
         )
 
-    @app_commands.command(name="to-file", description="Send text as a file")
-    @app_commands.describe(name="Filename", content="File content")
+    @app_commands.command(name="to-file", description=ls("tools.cmd_tofile_desc"))
+    @app_commands.describe(
+        name=ls("tools.param_tofile_name"), content=ls("tools.param_tofile_content")
+    )
     async def slash_to_file(
         self, interaction: discord.Interaction, name: str, content: str
     ):
@@ -225,11 +211,7 @@ class ToolsCog(commands.Cog):
         await self._handle_delete(ctx, message_id, show_to_public)
 
     @commands.command(name="clear-message")
-    @u.requires(
-        u.Permission.MOD,
-        deny=f":x: **No permission** :x:\n-# {CLEAR_MESSAGE_MARKER}",
-        perm_module="tools",
-    )
+    @u.requires(u.Permission.MOD, perm_module="tools")
     async def prefix_clear_message(self, ctx: commands.Context):
         flags = _parse_flags(ctx.message.content)
 
@@ -269,7 +251,7 @@ class ToolsCog(commands.Cog):
                 message_count = int(flags["count"])
             except ValueError:
                 await ctx.send(
-                    self._mark_clear_message(":x: **count must be an integer**"),
+                    self._mark_clear_message(self._tr(ctx, "tools.clear_count_int")),
                     delete_after=10,
                 )
                 return
@@ -292,7 +274,7 @@ class ToolsCog(commands.Cog):
             else:
                 await ctx.send(
                     self._mark_clear_message(
-                        ":x: **Invalid within format (e.g. 30m, 2h, 1d)**"
+                        self._tr(ctx, "tools.clear_within_invalid")
                     ),
                     delete_after=10,
                 )
@@ -317,6 +299,7 @@ class ToolsCog(commands.Cog):
             ctx.author,
             ctx.guild,
             ctx.channel,
+            lang=self._lang(ctx),
             user=user,
             user_ids=user_ids,
             webhook_ids=webhook_ids,
@@ -358,12 +341,18 @@ class ToolsCog(commands.Cog):
             result = random.randint(min_num, max_num)
             await u.send_msg(
                 source,
-                f":game_die: `{min_num}` - `{max_num}` random: **`{result}`**",
+                self._tr(
+                    source,
+                    "tools.random_result",
+                    min=min_num,
+                    max=max_num,
+                    result=result,
+                ),
             )
         except ValueError:
             await u.send_msg(
                 source,
-                ":x: Please enter valid integers!",
+                self._tr(source, "tools.random_invalid"),
                 ephemeral=True,
                 delete_after=10,
             )
@@ -374,8 +363,12 @@ class ToolsCog(commands.Cog):
         now = int(datetime.now().timestamp())
         await u.send_msg(
             source,
-            f":lock: Random UUID: **```{uuid()}```**> "
-            f"Private message, deletes <t:{now + delete_after}:R>",
+            self._tr(
+                source,
+                "tools.uuid_result",
+                uuid=uuid(),
+                ts=now + delete_after,
+            ),
             ephemeral=True,
             delete_after=delete_after,
         )
@@ -402,7 +395,7 @@ class ToolsCog(commands.Cog):
         if not message_id:
             await u.send_msg(
                 source,
-                ":x: **No message ID specified** :x:",
+                self._tr(source, "tools.delete_no_id"),
                 ephemeral=True,
                 delete_after=10,
             )
@@ -415,35 +408,35 @@ class ToolsCog(commands.Cog):
         except discord.Forbidden:
             await u.send_msg(
                 source,
-                ":x: **Permission denied** :x:",
+                self._tr(source, "common.permission_denied"),
                 ephemeral=True,
                 delete_after=10,
             )
         except discord.NotFound:
             await u.send_msg(
                 source,
-                f":x: **Message `{message_id}` not found** :x:",
+                self._tr(source, "tools.delete_not_found", id=message_id),
                 ephemeral=True,
                 delete_after=10,
             )
         except ValueError:
             await u.send_msg(
                 source,
-                f":x: **Invalid message ID: `{message_id}`** :x:",
+                self._tr(source, "tools.delete_invalid_id", id=message_id),
                 ephemeral=True,
                 delete_after=10,
             )
         except Exception as e:
             await u.send_msg(
                 source,
-                f":x: **Error deleting `{message_id}`: `{e}`** :x:",
+                self._tr(source, "tools.delete_error", id=message_id, error=e),
                 ephemeral=True,
                 delete_after=10,
             )
         else:
             await u.send_msg(
                 source,
-                f":white_check_mark: **Deleted message `{message_id}`** :white_check_mark:",
+                self._tr(source, "tools.delete_ok", id=message_id),
                 ephemeral=not show_to_public,
             )
             if self.audit:
@@ -466,6 +459,20 @@ class ToolsCog(commands.Cog):
             author=author, guild=guild, channel=channel, **kwargs
         )
 
+    def _move_position_parts(self, source, category, before, after) -> str:
+        msg_parts = []
+        if category:
+            msg_parts.append(
+                self._tr(source, "tools.move_part_category", name=category.name)
+            )
+        if before:
+            msg_parts.append(
+                self._tr(source, "tools.move_part_before", name=before.name)
+            )
+        elif after:
+            msg_parts.append(self._tr(source, "tools.move_part_after", name=after.name))
+        return " / ".join(msg_parts)
+
     async def _handle_move_channel(
         self,
         source,
@@ -479,7 +486,7 @@ class ToolsCog(commands.Cog):
         if not category and not before and not after:
             await u.send_msg(
                 source,
-                ":x: **Need at least one of: category, before, after**",
+                self._tr(source, "tools.move_need_target"),
                 ephemeral=True,
                 delete_after=10,
             )
@@ -487,7 +494,7 @@ class ToolsCog(commands.Cog):
         if before and after:
             await u.send_msg(
                 source,
-                ":x: **Cannot set both before and after**",
+                self._tr(source, "tools.move_both_before_after"),
                 ephemeral=True,
                 delete_after=10,
             )
@@ -496,7 +503,7 @@ class ToolsCog(commands.Cog):
         if not isinstance(channel, discord.abc.GuildChannel):
             await u.send_msg(
                 source,
-                ":x: **Only server channels supported**",
+                self._tr(source, "tools.move_only_guild"),
                 ephemeral=True,
                 delete_after=10,
             )
@@ -509,7 +516,7 @@ class ToolsCog(commands.Cog):
                 if not perms.manage_channels:
                     await u.send_msg(
                         source,
-                        ":x: **You do not have Manage Channels permission on this channel**",
+                        self._tr(source, "tools.move_no_manage_channels"),
                         ephemeral=True,
                         delete_after=10,
                     )
@@ -537,16 +544,15 @@ class ToolsCog(commands.Cog):
                 kwargs["sync_permissions"] = True
         try:
             await channel.edit(**kwargs)  # type: ignore[attr-defined]
-            msg_parts = []
-            if category:
-                msg_parts.append(f"category `{category.name}`")
-            if before:
-                msg_parts.append(f"before `{before.name}`")
-            elif after:
-                msg_parts.append(f"after `{after.name}`")
+            position = self._move_position_parts(source, category, before, after)
             await u.send_msg(
                 source,
-                f":white_check_mark: **Moved {channel.mention} to {' / '.join(msg_parts)}**",
+                self._tr(
+                    source,
+                    "tools.move_ok",
+                    channel=channel.mention,
+                    position=position,
+                ),
             )
             if self.audit:
                 await self.audit.log(
@@ -554,26 +560,26 @@ class ToolsCog(commands.Cog):
                     user=user,
                     guild=source.guild,
                     channel=source.channel,
-                    detail=f"Moved channel `{channel.name}` to {' / '.join(msg_parts)}",
+                    detail=f"Moved channel `{channel.name}` to {position}",
                 )
         except discord.Forbidden:
             await u.send_msg(
                 source,
-                ":x: **Permission denied: need Manage Channels**",
+                self._tr(source, "tools.move_forbidden"),
                 ephemeral=True,
                 delete_after=10,
             )
         except discord.HTTPException as e:
             await u.send_msg(
                 source,
-                f":x: **API error ({e.status} - {e.text})**",
+                self._tr(source, "tools.move_api_error", status=e.status, text=e.text),
                 ephemeral=True,
                 delete_after=10,
             )
         except Exception as e:
             await u.send_msg(
                 source,
-                f":x: **Unexpected error: `{e}`**",
+                self._tr(source, "tools.move_unexpected", error=e),
                 ephemeral=True,
                 delete_after=10,
             )
@@ -596,7 +602,7 @@ class ToolsCog(commands.Cog):
         if not allowed:
             await u.send_msg(
                 source,
-                f":hourglass_flowing_sand: **Rate limited, retry in `{retry_after:.0f}s`**",
+                self._tr(source, "common.rate_limited", retry=f"{retry_after:.0f}"),
                 ephemeral=True,
                 delete_after=10,
             )

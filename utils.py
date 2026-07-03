@@ -179,7 +179,20 @@ PermissionCheck = t.Callable[
     [t.Any, "discord.User | discord.Member", "discord.Guild | None"], bool
 ]
 
-DEFAULT_DENY_MESSAGE = ":x: **你没有权限使用此指令** :x:"
+
+def _resolve_lang(source) -> str:
+    """从 source 解析语言 (延迟导入以避免与 i18n 循环依赖)"""
+    import i18n
+
+    lang_store = None
+    bot = getattr(source, "client", None) or getattr(source, "bot", None)
+    if bot is not None:
+        lang_store = getattr(bot, "lang_store", None)
+    return i18n.lang_of(source, lang_store)
+
+
+# Sentinel: use the localized default deny message at runtime.
+DEFAULT_DENY_MESSAGE = None
 
 
 def has_permission(
@@ -211,7 +224,7 @@ def has_permission(
 def requires(
     perm: "Permission | PermissionCheck",
     *,
-    deny: "str | t.Callable[[discord.User | discord.Member], str]" = DEFAULT_DENY_MESSAGE,
+    deny: "str | t.Callable[[discord.User | discord.Member], str] | None" = DEFAULT_DENY_MESSAGE,
     perm_module: str | None = None,
     perm_command: str | None = None,
 ):
@@ -248,9 +261,15 @@ def requires(
                     cmd_key = func.__name__.removeprefix("_handle_")
                     allowed, retry = rl.hit((f"global:{cmd_key}", user.id), 10, 10)
                     if not allowed:
+                        import i18n
+
                         await send_msg(
                             source,
-                            f":hourglass: **Rate limited, retry in `{retry:.0f}s`**",
+                            i18n.t(
+                                "common.rate_limited",
+                                _resolve_lang(source),
+                                retry=f"{retry:.0f}",
+                            ),
                             ephemeral=True,
                             delete_after=10,
                         )
@@ -274,7 +293,14 @@ def requires(
                 ):
                     return await func(self, source, *args, **kwargs)
 
-            deny_msg = deny if isinstance(deny, str) else deny(user)
+            if deny is None:
+                import i18n
+
+                deny_msg = i18n.t("common.no_permission", _resolve_lang(source))
+            elif isinstance(deny, str):
+                deny_msg = deny
+            else:
+                deny_msg = deny(user)
             await send_msg(source, deny_msg, ephemeral=True, delete_after=10)
             return None
 

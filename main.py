@@ -54,6 +54,7 @@ import utils as u  # noqa: E402
 from modules.audit import AuditLogger  # noqa: E402
 from perm import PermStore  # noqa: E402
 from lang_store import LangStore  # noqa: E402
+from i18n import I18nTranslator  # noqa: E402
 
 # endregion import
 
@@ -168,14 +169,14 @@ async def on_tree_error(
     l.opt(exception=error).error(f"[tree] Command '{cmd_name}' from {user_tag}")
 
     # Notify user
+    from i18n import t as _t, lang_of
+
+    lang = lang_of(interaction, getattr(client, "lang_store", None))
+    err_msg = _t("common.internal_error", lang, error=error)
     if not interaction.response.is_done():
-        await interaction.response.send_message(
-            f":x: **Internal error**: `{error}`", ephemeral=True
-        )
+        await interaction.response.send_message(err_msg, ephemeral=True)
     else:
-        await interaction.followup.send(
-            f":x: **Internal error**: `{error}`", ephemeral=True
-        )
+        await interaction.followup.send(err_msg, ephemeral=True)
 
     # Log to audit (silently ignore if audit fails)
     audit = getattr(client, "audit", None)
@@ -225,6 +226,7 @@ async def on_ready():
 
 async def main():
     async with client:
+        await client.tree.set_translator(I18nTranslator())
         await load_cogs()
         await client.start(c.token)
 

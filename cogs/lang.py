@@ -2,7 +2,7 @@ import discord
 from discord import app_commands
 from discord.ext import commands
 
-from i18n import t as _t
+from i18n import t as _t, ls
 from lang_store import LangStore
 import utils as u
 
@@ -13,10 +13,10 @@ class LangCog(commands.Cog):
         self.c = bot.config  # ty:ignore[unresolved-attribute]
         self.lang_store: LangStore = getattr(bot, "lang_store")
 
-    @app_commands.command(name="lang", description=_t("lang.command_description", "en"))
+    @app_commands.command(name="lang", description=ls("lang.command_description"))
     @app_commands.describe(
-        lang=_t("lang.param_lang_description", "en"),
-        scope=_t("lang.param_scope_description", "en"),
+        lang=ls("lang.param_lang_description"),
+        scope=ls("lang.param_scope_description"),
     )
     async def slash_lang(
         self,
@@ -27,24 +27,24 @@ class LangCog(commands.Cog):
         lang_val = lang.strip().lower() if lang else None
         scope_val = scope.strip().lower()
 
+        resolved = self.lang_store.resolve(
+            interaction.user.id,
+            interaction.guild.id if interaction.guild else None,
+        )
+
         if lang_val is not None and lang_val not in ("zh", "en"):
             await interaction.response.send_message(
-                ":x: **Invalid language. Use `zh` or `en`**",
+                _t("lang.invalid_language", resolved),
                 ephemeral=True,
             )
             return
 
         if scope_val not in ("user", "server"):
             await interaction.response.send_message(
-                ":x: **Invalid scope. Use `user` or `server`**",
+                _t("lang.invalid_scope", resolved),
                 ephemeral=True,
             )
             return
-
-        resolved = self.lang_store.resolve(
-            interaction.user.id,
-            interaction.guild.id if interaction.guild else None,
-        )
 
         if scope_val == "server":
             if interaction.guild is None:

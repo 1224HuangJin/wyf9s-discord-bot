@@ -76,6 +76,7 @@ export default defineConfig({
             { text: '管理指令 (admin)', link: '/modules/admin' },
             { text: '动态权限 (perm)', link: '/modules/perm' },
             { text: '公告推送 (announce)', link: '/modules/announce' },
+            { text: '多语言 (lang)', link: '/modules/lang' },
           ],
         },
         {

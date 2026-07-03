@@ -1,6 +1,6 @@
 # wyf9s-discord-bot
 
-多功能 Discord 机器人，基于 discord.py 构建，使用 YAML + Pydantic 配置验证。模块使用 discord.py Cog 架构，支持热重载。
+多功能 Discord 机器人，基于 discord.py 构建，使用 YAML + Pydantic 配置验证。模块使用 discord.py Cog 架构，支持热重载。内置多语言（i18n）支持，可按用户 / 服务器切换语言。
 
 ## 功能模块
 
@@ -16,6 +16,14 @@
 | **管理** (`admin`) | 指令同步 `/sync`、模块热重载 `/reload` |
 | **动态权限** (`perm`) | `/perm add/rm/show` — 动态权限管理，存储于 `perm.yaml`，`config.yaml` 始终优先 |
 | **公告推送** (`announce`) | `/subscribe` 关注公告频道 |
+| **多语言** (`lang`) | `/lang` 切换用户 / 服务器语言（`zh` / `en`），偏好持久化到 `lang_settings.yaml` |
+
+## 多语言 (i18n)
+
+- 所有面向用户的文本通过 `lang/zh.yaml`（默认）与 `lang/en.yaml` 提供翻译。
+- **运行时消息**：按 `用户 > 服务器 > 默认(zh)` 的优先级解析语言，由 `/lang` 设置。
+- **斜杠命令 / 参数描述**：通过 discord.py 的命令本地化（`locale_str` + `Translator`）随用户 Discord 客户端语言显示（`en-US` / `zh-CN` 等）。
+- 新增语言：添加 `lang/<code>.yaml` 并在 `i18n.py` 中扩展 `SUPPORTED_LANGS` 与 locale 映射。
 
 ## Cog 架构
 
@@ -59,6 +67,7 @@
 | `/perm add <user> [module\|command]` | Admin | 添加权限规则 |
 | `/perm rm [rid\|user]` | Admin | 删除权限规则 |
 | `/subscribe [channel]` | Mod | 关注公告频道 |
+| `/lang [lang] [scope]` | 所有人（server 范围需管理权限） | 切换语言偏好 |
 
 ## 技术栈
 

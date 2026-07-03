@@ -17,6 +17,7 @@
 | 管理指令 | — | 指令 | `/sync` `/reload` | [查看](/modules/admin) |
 | 动态权限 | `perm` | 指令 | `/perm add` `/perm rm` `/perm show` | [查看](/modules/perm) |
 | 公告推送 | `announce` | 指令 | `/subscribe` | [查看](/modules/announce) |
+| 多语言 | —（始终启用） | 指令 | `/lang` | [查看](/modules/lang) |
 | 自动管理 | `rmmsg` / `rmtodo` | 事件 | 无 | [查看](/modules/manage) |
 | 反垃圾 | `antispam` | 事件 | 无 | [查看](/modules/antispam) |
 | 审计日志 | `audit` | 服务 | 无 | [查看](/modules/audit) |
@@ -46,6 +47,7 @@
 | `/perm rm` | perm | Admin | — | 删除权限规则 |
 | `/perm show` | perm | Admin | — | 查看权限规则 |
 | `/subscribe` | announce | Mod | — | 关注公告频道 |
+| `/lang` | lang | 所有人（server 范围需管理权限） | ✅ | 切换 / 查看语言偏好 |
 
 > 权限体系详见[权限系统](/guide/permissions)，限速详见[限速与 Rate Limit](/guide/rate-limit)。
 

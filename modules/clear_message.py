@@ -7,13 +7,14 @@ import discord
 
 from config import ConfigModel
 from modules.audit import AuditLogger
+from i18n import t as _t
 
 
 CLEAR_MESSAGE_MARKER = "[clear-message]"
 
 
 def _parse_time_or_id(
-    value: str | None, label: str
+    value: str | None, label: str, lang: str = "zh"
 ) -> tuple[discord.Object | None, datetime | None, str | None]:
     if not value or not value.strip():
         return None, None, None
@@ -48,7 +49,7 @@ def _parse_time_or_id(
     return (
         None,
         None,
-        f"{label}: `{value}` 格式无效 (支持: 消息ID, 相对时间如 30m/2h/1d, ISO 时间)",
+        _t("clearmsg.time_invalid", lang, label=label, value=value),
     )
 
 
@@ -83,15 +84,16 @@ class ClearMessageService:
         start: str | None = None,
         end: str | None = None,
         write_audit: bool = True,
+        lang: str = "zh",
     ) -> str:
         message_limit = message_count if message_count is not None else 0
         minutes_limit = within_minutes if within_minutes is not None else 0
 
         if message_limit < 0:
-            return ":x: **message_count 不能小于 0** :x:"
+            return _t("clearmsg.count_negative", lang)
 
         if minutes_limit < 0:
-            return ":x: **within_minutes 不能小于 0** :x:"
+            return _t("clearmsg.minutes_negative", lang)
 
         has_time_range = bool(start or end)
         has_legacy_restriction = minutes_limit > 0 or message_limit > 0
@@ -104,13 +106,13 @@ class ClearMessageService:
         )
 
         if has_time_range and has_legacy_restriction:
-            return ":x: **start/end 不能与 within_minutes/message_count 同时使用** :x:"
+            return _t("clearmsg.range_conflict", lang)
 
         if not has_time_range and message_limit == 0 and minutes_limit == 0:
-            return ":x: **message_count 和 within_minutes 不能同时不限制，请至少设置一个** :x:"
+            return _t("clearmsg.need_limit", lang)
 
         if not has_time_range and not has_legacy_restriction and not has_match_filter:
-            return ":x: **必须指定至少一种过滤条件或范围限制** :x:"
+            return _t("clearmsg.need_filter", lang)
 
         def parse_ids(raw_ids: str, label: str) -> tuple[set[int] | None, str]:
             parts = [
@@ -119,11 +121,13 @@ class ClearMessageService:
                 if part.strip()
             ]
             if not parts:
-                return None, f"{label} 为空"
+                return None, _t("clearmsg.ids_empty", lang, label=label)
             values: set[int] = set()
             for part in parts:
                 if not part.isdigit():
-                    return None, f"{label} 中包含非法 ID: `{part}`"
+                    return None, _t(
+                        "clearmsg.ids_invalid", lang, label=label, part=part
+                    )
                 values.add(int(part))
             return values, ""
 
@@ -139,14 +143,14 @@ class ClearMessageService:
         if user_ids and user_ids.strip():
             parsed, err = parse_ids(user_ids.strip(), "user_ids")
             if not parsed:
-                return f":x: **{err}** :x:"
+                return _t("clearmsg.error_wrap", lang, msg=err)
             target_user_ids |= parsed
             if "user_ids" not in match_types:
                 match_types.append("user_ids")
         if webhook_ids and webhook_ids.strip():
             parsed, err = parse_ids(webhook_ids.strip(), "webhook_ids")
             if not parsed:
-                return f":x: **{err}** :x:"
+                return _t("clearmsg.error_wrap", lang, msg=err)
             target_webhook_ids = parsed
             match_types.append("webhook_ids")
         if nick_pattern and nick_pattern.strip():
@@ -158,7 +162,7 @@ class ClearMessageService:
 
         scope = scope.lower().strip()
         if scope not in ["channel", "server"]:
-            return f':x: **无效的 scope 参数: `{scope}`, 只支持 "channel" 或 "server"** :x:'
+            return _t("clearmsg.invalid_scope", lang, scope=scope)
 
         target_channels: list[
             discord.TextChannel | discord.VoiceChannel | discord.StageChannel
@@ -170,7 +174,7 @@ class ClearMessageService:
                 target_channels.append(channel)  # type: ignore[arg-type]  # ty:ignore[invalid-argument-type]
         else:
             if not guild:
-                return ":x: **此指令只能在服务器内使用** :x:"
+                return _t("clearmsg.server_only", lang)
             target_channels = [
                 ch
                 for ch in guild.channels
@@ -186,15 +190,15 @@ class ClearMessageService:
         end_dt: datetime | None = None
         if has_time_range:
             if start:
-                start_obj, start_dt, start_err = _parse_time_or_id(start, "start")
+                start_obj, start_dt, start_err = _parse_time_or_id(start, "start", lang)
                 if start_err:
-                    return f":x: **{start_err}** :x:"
+                    return _t("clearmsg.error_wrap", lang, msg=start_err)
             if end:
-                end_obj, end_dt, end_err = _parse_time_or_id(end, "end")
+                end_obj, end_dt, end_err = _parse_time_or_id(end, "end", lang)
                 if end_err:
-                    return f":x: **{end_err}** :x:"
+                    return _t("clearmsg.error_wrap", lang, msg=end_err)
             if start_dt and end_dt and start_dt > end_dt:
-                return ":x: **start 时间不能晚于 end 时间** :x:"
+                return _t("clearmsg.start_gt_end_time", lang)
 
         # 如果 start 和 end 都是消息 ID，验证顺序并获取消息
         start_msg: discord.Message | None = None
@@ -208,17 +212,17 @@ class ClearMessageService:
                 try:
                     start_msg = await channel_for_fetch.fetch_message(start_obj.id)
                 except discord.NotFound:
-                    return f":x: **找不到 ID 为 `{start_obj.id}` 的 start 消息** :x:"
+                    return _t("clearmsg.start_msg_not_found", lang, id=start_obj.id)
                 except discord.HTTPException as e:
-                    return f":x: **获取 start 消息时出错: {e}** :x:"
+                    return _t("clearmsg.start_msg_error", lang, error=e)
                 try:
                     end_msg = await channel_for_fetch.fetch_message(end_obj.id)
                 except discord.NotFound:
-                    return f":x: **找不到 ID 为 `{end_obj.id}` 的 end 消息** :x:"
+                    return _t("clearmsg.end_msg_not_found", lang, id=end_obj.id)
                 except discord.HTTPException as e:
-                    return f":x: **获取 end 消息时出错: {e}** :x:"
+                    return _t("clearmsg.end_msg_error", lang, error=e)
                 if start_msg.created_at > end_msg.created_at:
-                    return ":x: **start 消息不能晚于 end 消息** :x:"
+                    return _t("clearmsg.start_gt_end_msg", lang)
 
         cutoff_time = None
         start_time_bound: datetime | None = None
@@ -299,7 +303,7 @@ class ClearMessageService:
                 pass
             except Exception as e:
                 l.warning(
-                    f"获取频道 {target_channel.name} ({target_channel.id}) 消息时出错: {e}"
+                    f"[clear-message] Error fetching messages from {target_channel.name} ({target_channel.id}): {e}"
                 )
 
         # 将 start_msg 和 end_msg 添加到结果中（如果它们符合过滤条件且尚未包含）
@@ -317,27 +321,56 @@ class ClearMessageService:
             match_descs: list[str] = []
             if target_user_ids:
                 if len(target_user_ids) == 1 and match_types == ["user"]:
-                    match_descs.append(f"用户 {user.mention if user else '[unknown]'}")
+                    match_descs.append(
+                        _t(
+                            "clearmsg.desc_user",
+                            lang,
+                            user=user.mention
+                            if user
+                            else _t("clearmsg.unknown_user", lang),
+                        )
+                    )
                 else:
-                    match_descs.append(f"用户 ID `{sorted(target_user_ids)}`")
+                    match_descs.append(
+                        _t("clearmsg.desc_user_ids", lang, ids=sorted(target_user_ids))
+                    )
             if target_webhook_ids:
-                match_descs.append(f"Webhook ID `{sorted(target_webhook_ids)}`")
+                match_descs.append(
+                    _t(
+                        "clearmsg.desc_webhook_ids",
+                        lang,
+                        ids=sorted(target_webhook_ids),
+                    )
+                )
             if nick_pattern_filter:
-                match_descs.append(f"昵称通配符 `{nick_pattern_filter}`")
+                match_descs.append(
+                    _t("clearmsg.desc_nick", lang, pattern=nick_pattern_filter)
+                )
             if content_pattern_filter:
-                match_descs.append(f"内容通配符 `{content_pattern_filter}`")
-            match_desc = " / ".join(match_descs) if match_descs else "无过滤条件"
+                match_descs.append(
+                    _t("clearmsg.desc_content", lang, pattern=content_pattern_filter)
+                )
+            match_desc = (
+                " / ".join(match_descs)
+                if match_descs
+                else _t("clearmsg.desc_none", lang)
+            )
             time_desc = ""
             if has_time_range:
                 parts = []
                 if start:
-                    parts.append(f"起始 `{start}`")
+                    parts.append(_t("clearmsg.desc_start", lang, value=start))
                 if end:
-                    parts.append(f"结束 `{end}`")
+                    parts.append(_t("clearmsg.desc_end", lang, value=end))
                 time_desc = ", ".join(parts)
             elif minutes_limit > 0:
-                time_desc = f"最近 **{minutes_limit}** 分钟内"
-            return f":broom: 未找到匹配 **{match_desc}** {(time_desc + ' ') if time_desc else ''}的消息"
+                time_desc = _t("clearmsg.desc_within", lang, minutes=minutes_limit)
+            return _t(
+                "clearmsg.no_match",
+                lang,
+                match=match_desc,
+                time=(time_desc + " ") if time_desc else "",
+            )
 
         success_count = 0
         failed_count = 0
@@ -368,7 +401,7 @@ class ClearMessageService:
                         await target_channel.delete_messages(valid_batch)
                         success_count += len(valid_batch)
                 except discord.Forbidden:
-                    return f":x: **权限不足, 无法删除频道 `{target_channel.name}` 中的消息** :x:"
+                    return _t("clearmsg.forbidden", lang, channel=target_channel.name)
                 except discord.HTTPException as e:
                     if e.code == 50034:
                         too_old_count += len(valid_batch)
@@ -376,82 +409,139 @@ class ClearMessageService:
                         pass
                     else:
                         l.error(
-                            f"批量删除消息时出错 (channel={target_channel.id}, batch={i}:{i + len(batch)}): {e}"
+                            f"[clear-message] Bulk delete error (channel={target_channel.id}, batch={i}:{i + len(batch)}): {e}"
                         )
                         failed_count += len(valid_batch)
                 except Exception as e:
-                    l.error(f"批量删除消息时出错 (channel={target_channel.id}): {e}")
+                    l.error(
+                        f"[clear-message] Bulk delete error (channel={target_channel.id}): {e}"
+                    )
                     failed_count += len(valid_batch)
 
-        scope_text = "频道" if scope == "channel" else "服务器"
-        channel_name = getattr(channel, "name", "[DM Channel]")
-        channel_info = f" (频道: {channel_name})" if scope == "channel" else ""
+        scope_text = _t(
+            "clearmsg.scope_channel" if scope == "channel" else "clearmsg.scope_server",
+            lang,
+        )
+        channel_name = getattr(channel, "name", _t("clearmsg.dm_channel", lang))
+        channel_info = (
+            _t("clearmsg.channel_info", lang, name=channel_name)
+            if scope == "channel"
+            else ""
+        )
         match_descs_result: list[str] = []
         if target_user_ids:
             if len(target_user_ids) == 1 and set(match_types) == {"user"}:
                 match_descs_result.append(
-                    f"**用户 {user.mention if user else '[unknown]'}**"
+                    _t(
+                        "clearmsg.result_user",
+                        lang,
+                        user=user.mention
+                        if user
+                        else _t("clearmsg.unknown_user", lang),
+                    )
                 )
             else:
-                match_descs_result.append(f"**用户 ID `{sorted(target_user_ids)}`**")
+                match_descs_result.append(
+                    _t("clearmsg.result_user_ids", lang, ids=sorted(target_user_ids))
+                )
         if target_webhook_ids:
-            match_descs_result.append(f"**Webhook ID `{sorted(target_webhook_ids)}`**")
+            match_descs_result.append(
+                _t(
+                    "clearmsg.result_webhook_ids",
+                    lang,
+                    ids=sorted(target_webhook_ids),
+                )
+            )
         if nick_pattern_filter:
-            match_descs_result.append(f"**昵称通配符 `{nick_pattern_filter}`**")
+            match_descs_result.append(
+                _t("clearmsg.result_nick", lang, pattern=nick_pattern_filter)
+            )
         if content_pattern_filter:
-            match_descs_result.append(f"**内容通配符 `{content_pattern_filter}`**")
+            match_descs_result.append(
+                _t("clearmsg.result_content", lang, pattern=content_pattern_filter)
+            )
         match_desc_result = (
-            " / ".join(match_descs_result) if match_descs_result else "**无过滤条件**"
+            " / ".join(match_descs_result)
+            if match_descs_result
+            else _t("clearmsg.result_none", lang)
         )
 
         time_desc_result: str
         if has_time_range:
             parts = []
             if start:
-                parts.append(f"起始 `{start}`")
+                parts.append(_t("clearmsg.desc_start", lang, value=start))
             if end:
-                parts.append(f"结束 `{end}`")
-            time_desc_result = ", ".join(parts) if parts else "不限制"
+                parts.append(_t("clearmsg.desc_end", lang, value=end))
+            time_desc_result = (
+                ", ".join(parts) if parts else _t("clearmsg.result_unlimited", lang)
+            )
         elif minutes_limit > 0:
-            time_desc_result = f"最近 **{minutes_limit}** 分钟"
+            time_desc_result = _t("clearmsg.result_within", lang, minutes=minutes_limit)
         else:
-            time_desc_result = "不限制"
+            time_desc_result = _t("clearmsg.result_unlimited", lang)
 
-        result_msg = (
-            f":broom: 批量清除消息完成 :broom:"
-            f"\n范围: **{scope_text}**{channel_info}"
-            f"\n匹配方式: {match_desc_result}"
-            f"\n时间范围: {time_desc_result}"
-            + (
-                f"\n每频道检查上限: **{message_limit}** 条"
-                if not has_time_range and message_limit > 0
-                else ""
+        result_lines = [
+            _t("clearmsg.result_title", lang),
+            _t(
+                "clearmsg.result_scope",
+                lang,
+                scope=scope_text,
+                channel_info=channel_info,
+            ),
+            _t("clearmsg.result_match", lang, match=match_desc_result),
+            _t("clearmsg.result_time", lang, time=time_desc_result),
+        ]
+        if not has_time_range and message_limit > 0:
+            result_lines.append(
+                _t("clearmsg.result_check_limit", lang, count=message_limit)
             )
-            + f"\n匹配消息 **{checked_count}** 条"
-            f"\n成功删除: **{success_count}** 条"
-            + (
-                f"\n因超过 14 天不可删: **{too_old_count}** 条"
-                if too_old_count > 0
-                else ""
+        result_lines.append(_t("clearmsg.result_matched", lang, count=checked_count))
+        result_lines.append(_t("clearmsg.result_deleted", lang, count=success_count))
+        if too_old_count > 0:
+            result_lines.append(
+                _t("clearmsg.result_too_old", lang, count=too_old_count)
             )
-            + (f"\n其他原因失败: **{failed_count}** 条" if failed_count > 0 else "")
-            + f"\n-# {CLEAR_MESSAGE_MARKER}"
-        )
+        if failed_count > 0:
+            result_lines.append(_t("clearmsg.result_failed", lang, count=failed_count))
+        result_msg = "\n".join(result_lines) + f"\n-# {CLEAR_MESSAGE_MARKER}"
 
         if self.audit and write_audit:
+            audit_detail = (
+                _t(
+                    "clearmsg.audit_scope",
+                    lang,
+                    scope=scope_text,
+                    channel_info=channel_info,
+                )
+                + "\n"
+                + _t("clearmsg.audit_match", lang, match=match_desc_result)
+                + "\n"
+                + _t("clearmsg.audit_time", lang, time=time_desc_result)
+                + "\n"
+                + _t(
+                    "clearmsg.audit_summary",
+                    lang,
+                    checked=checked_count,
+                    success=success_count,
+                )
+                + (
+                    _t("clearmsg.audit_too_old", lang, count=too_old_count)
+                    if too_old_count > 0
+                    else ""
+                )
+                + (
+                    _t("clearmsg.audit_failed", lang, count=failed_count)
+                    if failed_count > 0
+                    else ""
+                )
+            )
             await self.audit.log(
                 action="clear-message",
                 user=author,
                 guild=guild,
                 channel=channel,
-                detail=(
-                    f"范围: {scope_text}{channel_info}"
-                    f"\n匹配方式: {match_desc_result}"
-                    f"\n时间范围: {time_desc_result}"
-                    f"\n匹配 {checked_count} 条, 成功删除 {success_count} 条"
-                    + (f", 超期 {too_old_count} 条" if too_old_count > 0 else "")
-                    + (f", 失败 {failed_count} 条" if failed_count > 0 else "")
-                ),
+                detail=audit_detail,
                 success=failed_count == 0,
             )
 
