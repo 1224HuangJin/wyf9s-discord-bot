@@ -4,6 +4,7 @@ from discord.ext import commands
 
 from i18n import t as _t, ls
 from lang_store import LangStore
+from modules.audit import AuditLogger
 import utils as u
 
 
@@ -12,6 +13,7 @@ class LangCog(commands.Cog):
         self.bot = bot
         self.c = bot.config  # ty:ignore[unresolved-attribute]
         self.lang_store: LangStore = getattr(bot, "lang_store")
+        self.audit: AuditLogger | None = getattr(bot, "audit", None)
 
     @app_commands.command(name="lang", description=ls("lang.command_description"))
     @app_commands.describe(
@@ -74,6 +76,14 @@ class LangCog(commands.Cog):
                 _t("lang.set_server", resolved, lang=lang_val),
                 ephemeral=True,
             )
+            if self.audit:
+                await self.audit.log(
+                    action="lang-server",
+                    user=interaction.user,
+                    guild=interaction.guild,
+                    channel=interaction.channel,
+                    detail=f"Server language set to `{lang_val}`",
+                )
             return
 
         if lang_val is None:

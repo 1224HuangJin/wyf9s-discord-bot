@@ -2,13 +2,7 @@ import typing as t
 from pathlib import Path
 
 from loguru import logger as l
-from pydantic import (
-    BaseModel,
-    ConfigDict,
-    Field,
-    field_validator,
-    model_validator,
-)
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 from yaml import safe_load
 
 import utils as u
@@ -208,23 +202,14 @@ class _VoiceChannelConfigModel(BaseModel):
 
 
 class _AuditGuildConfigModel(BaseModel):
-    """
-    Per-server log channel config
-
-    - action: 普通指令操作日志频道
-    - audit: 审计日志频道 (自动化操作 / 错误 / 反垃圾)
-    - 两类互相独立, 未配置的一类不发送
-    """
+    """Per-server audit log config"""
 
     model_config = ConfigDict(populate_by_name=True)
 
-    action: int | None = None
-    """普通指令操作日志频道 ID"""
+    channel: int
+    """Log target channel ID"""
 
-    audit: int | None = None
-    """审计日志频道 ID"""
-
-    @field_validator("action", "audit", mode="before")
+    @field_validator("channel", mode="before")
     def normalize_channel(cls, v):
         if isinstance(v, str) and v.isdigit():
             return int(v)
@@ -232,29 +217,18 @@ class _AuditGuildConfigModel(BaseModel):
 
 
 class _AuditLogConfigModel(BaseModel):
-    """Admin action / audit log config (no commands, service module)"""
+    """Audit log config (no commands, service module)"""
 
     model_config = ConfigDict(populate_by_name=True)
 
     enabled: bool = False
-    """Whether logging is enabled"""
-
-    global_action: int | None = None
-    """
-    Global action log channel ID (普通指令操作日志)
-    - Set to None to disable
-    """
-
-    global_audit: int | None = None
-    """
-    Global audit log channel ID (审计日志: 自动化操作 / 错误 / 反垃圾)
-    - Set to None to disable
-    """
+    """Whether audit logging is enabled"""
 
     global_channel: int | None = None
     """
-    [Deprecated] Backport alias of global_audit
-    - 若设置且 global_audit 未设置, 则作为 global_audit 使用
+    Global audit log channel ID
+    - All audited operations will be sent here
+    - Set to None to disable global logging
     """
 
     guilds: dict[int | str, _AuditGuildConfigModel] = {}
@@ -262,10 +236,9 @@ class _AuditLogConfigModel(BaseModel):
     Per-server log channel config
     - key is guild id (can be int or str)
     - value can be:
-      - channel ID (int) — backport, treated as the `audit` channel, or
-      - { action: id, audit: id } — configure either / both category
-    - 全局与按服务器互不影响: 若都配置, 则两个频道都会收到对应类别的日志
-    - 某一类别未配置 (全局与服务器均无) 则不发送该类别
+      - channel ID (int), or
+      - { channel: channel_id }
+    - 与全局日志互不影响: 若两者都配置, 则两个频道都会收到日志
     """
 
     @field_validator("guilds", mode="before")
@@ -274,23 +247,12 @@ class _AuditLogConfigModel(BaseModel):
             return v
         result: dict = {}
         for key, value in v.items():
+            # 直接写频道 ID
             if isinstance(value, (int, str)):
-                # 兼容旧格式: 直接写频道 ID -> 作为 audit 频道
-                result[key] = {"audit": value}
-            elif isinstance(value, dict) and "channel" in value:
-                # 兼容旧格式: { channel: id } -> 作为 audit 频道
-                mapped = {k: val for k, val in value.items() if k != "channel"}
-                mapped.setdefault("audit", value["channel"])
-                result[key] = mapped
+                result[key] = {"channel": value}
             else:
                 result[key] = value
         return result
-
-    @model_validator(mode="after")
-    def backport_global_channel(self):
-        if self.global_audit is None and self.global_channel is not None:
-            self.global_audit = self.global_channel
-        return self
 
 
 class _PermissionListConfigModel(BaseModel):

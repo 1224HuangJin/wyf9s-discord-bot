@@ -189,7 +189,6 @@ async def on_tree_error(
                 detail=f"```\n{type(error).__name__}: {str(error)[:900]}\n```",
                 success=False,
                 auto=False,
-                category="audit",
             )
         except Exception:
             pass

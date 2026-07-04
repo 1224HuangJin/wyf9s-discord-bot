@@ -378,15 +378,6 @@ class ToolsCog(commands.Cog):
             return
         bio = io.BytesIO(content.encode("utf-8"))
         await u.send_msg(source, "", file=discord.File(fp=bio, filename=name))
-        user = source.user if isinstance(source, discord.Interaction) else source.author
-        if self.audit:
-            await self.audit.log(
-                action="to-file",
-                user=user,
-                guild=source.guild,
-                channel=source.channel,
-                detail=f"Sent file: `{name}`",
-            )
 
     async def _handle_delete(
         self, source, message_id: str, show_to_public: bool = False

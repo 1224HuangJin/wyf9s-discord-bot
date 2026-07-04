@@ -171,34 +171,20 @@ class AuditLogger:
         self.client = client
         self.lang_store = lang_store
 
-    def _resolve_targets(
-        self, guild: discord.Guild | None, category: str = "action"
-    ) -> list[int]:
-        """
-        解析某一类别 (action / audit) 的日志目标频道
-
-        :param category: "action" (普通指令日志) 或 "audit" (审计日志)
-        """
+    def _resolve_targets(self, guild: discord.Guild | None) -> list[int]:
         targets: list[int] = []
         seen: set[int] = set()
 
-        global_ch = (
-            self.c.audit.global_action
-            if category == "action"
-            else self.c.audit.global_audit
-        )
-        if global_ch:
-            targets.append(global_ch)
-            seen.add(global_ch)
+        if self.c.audit.global_channel:
+            targets.append(self.c.audit.global_channel)
+            seen.add(self.c.audit.global_channel)
 
         if guild is not None:
             guild_conf = self.c.audit.guilds.get(
                 guild.id, self.c.audit.guilds.get(str(guild.id))
             )
-            if guild_conf is not None:
-                ch = guild_conf.action if category == "action" else guild_conf.audit
-                if ch is not None and ch not in seen:
-                    targets.append(ch)
+            if guild_conf is not None and guild_conf.channel not in seen:
+                targets.append(guild_conf.channel)
 
         return targets
 
@@ -312,12 +298,11 @@ class AuditLogger:
         detail: str = "",
         success: bool = True,
         auto: bool = False,
-        category: str = "action",
     ):
         if not self.c.audit.enabled:
             return
 
-        targets = self._resolve_targets(guild, category)
+        targets = self._resolve_targets(guild)
         if not targets:
             return
 
@@ -416,7 +401,7 @@ class AuditLogger:
         if not self.c.audit.enabled:
             return
 
-        targets = self._resolve_targets(guild, "audit")
+        targets = self._resolve_targets(guild)
         if not targets:
             return
 
