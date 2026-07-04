@@ -30,83 +30,92 @@ class PermCog(commands.Cog):
         self.audit: AuditLogger | None = getattr(bot, "audit", None)
         self.perm_store: PermStore = getattr(bot, "perm_store", PermStore())
         bot.perm_store = self.perm_store  # ty:ignore[unresolved-attribute]
+        u.set_perm_store(self.perm_store)
         self.lang_store = getattr(bot, "lang_store", None)
 
     def _tr(self, source, key: str, **kwargs) -> str:
         return _t(key, lang_of(source, self.lang_store), **kwargs)
 
-    # ========== /perm list ==========
+    async def module_autocomplete(
+        self, interaction: discord.Interaction, current: str
+    ) -> list[app_commands.Choice[str]]:
+        cur = current.lower()
+        return [
+            app_commands.Choice(name=name, value=name)
+            for name in u.list_cog_names()
+            if cur in name.lower()
+        ][:25]
 
-    @app_commands.command(name="perm", description=ls("perm.cmd_desc"))
+    # ========== /perm add | rm | show ==========
+
+    perm_group = app_commands.Group(name="perm", description=ls("perm.cmd_desc"))
+
+    @perm_group.command(name="add", description=ls("perm.cmd_add_desc"))
     @app_commands.describe(
-        action=ls("perm.param_action"),
         user=ls("perm.param_user"),
         module=ls("perm.param_module"),
         command=ls("perm.param_command"),
         global_scope=ls("perm.param_global_scope"),
-        rid=ls("perm.param_rid"),
-        scope=ls("perm.param_scope"),
         private=ls("perm.param_private"),
     )
-    @app_commands.choices(
-        action=[
-            app_commands.Choice(name="add", value="add"),
-            app_commands.Choice(name="rm", value="rm"),
-            app_commands.Choice(name="show", value="show"),
-        ]
-    )
+    @app_commands.autocomplete(module=module_autocomplete)
     @u.requires(_perm_permission)
-    async def perm(
+    async def perm_add(
         self,
         interaction: discord.Interaction,
-        action: str,
-        user: str | None = None,
+        user: str,
         module: str | None = None,
         command: str | None = None,
         global_scope: bool = False,
+        private: bool = False,
+    ):
+        await self._perm_add(interaction, user, module, command, global_scope, private)
+
+    @perm_group.command(name="rm", description=ls("perm.cmd_rm_desc"))
+    @app_commands.describe(
+        user=ls("perm.param_user"),
+        module=ls("perm.param_module"),
+        command=ls("perm.param_command"),
+        rid=ls("perm.param_rid"),
+        global_scope=ls("perm.param_global_scope"),
+        private=ls("perm.param_private"),
+    )
+    @app_commands.autocomplete(module=module_autocomplete)
+    @u.requires(_perm_permission)
+    async def perm_rm(
+        self,
+        interaction: discord.Interaction,
+        user: str | None = None,
+        module: str | None = None,
+        command: str | None = None,
         rid: int | None = None,
+        global_scope: bool = False,
+        private: bool = False,
+    ):
+        await self._perm_rm(
+            interaction, user, module, command, rid, global_scope, private
+        )
+
+    @perm_group.command(name="show", description=ls("perm.cmd_show_desc"))
+    @app_commands.describe(
+        user=ls("perm.param_user"),
+        module=ls("perm.param_module"),
+        command=ls("perm.param_command"),
+        scope=ls("perm.param_scope"),
+        private=ls("perm.param_private"),
+    )
+    @app_commands.autocomplete(module=module_autocomplete)
+    @u.requires(_perm_permission)
+    async def perm_show(
+        self,
+        interaction: discord.Interaction,
+        user: str | None = None,
+        module: str | None = None,
+        command: str | None = None,
         scope: str = "server",
         private: bool = False,
     ):
-        await self._handle_perm(
-            interaction,
-            action,
-            user,
-            module,
-            command,
-            global_scope,
-            rid,
-            scope,
-            private,
-        )
-
-    async def _handle_perm(
-        self,
-        source,
-        action: str,
-        user: str | None,
-        module: str | None,
-        command: str | None,
-        global_scope: bool,
-        rid: int | None,
-        scope: str,
-        private: bool,
-    ):
-        if action == "add":
-            await self._perm_add(source, user, module, command, global_scope, private)
-        elif action == "rm":
-            await self._perm_rm(
-                source, user, module, command, rid, global_scope, private
-            )
-        elif action == "show":
-            await self._perm_show(source, user, module, command, scope, private)
-        else:
-            await self._reply(
-                source,
-                self._tr(source, "perm.invalid_action"),
-                ephemeral=True,
-                private=False,
-            )
+        await self._perm_show(interaction, user, module, command, scope, private)
 
     async def _perm_add(
         self,
@@ -149,14 +158,7 @@ class PermCog(commands.Cog):
             )
             return
 
-        if not module and not command:
-            await self._reply(
-                source,
-                self._tr(source, "perm.module_or_command_required"),
-                ephemeral=True,
-                private=private,
-            )
-            return
+        # neither module nor command -> grant mod (all mod commands)
 
         users = [u.strip() for u in user.split(",") if u.strip()]
         if not users:
@@ -192,10 +194,12 @@ class PermCog(commands.Cog):
         ]
         if module:
             msg_lines.append(self._tr(source, "perm.rule_added_module", module=module))
-        if command:
+        elif command:
             msg_lines.append(
                 self._tr(source, "perm.rule_added_command", command=command)
             )
+        else:
+            msg_lines.append(self._tr(source, "perm.rule_added_mod"))
         msg_lines.append(self._tr(source, "perm.rule_added_scope", scope=scope_label))
         if locked_users:
             msg_lines.append(
@@ -404,7 +408,7 @@ class PermCog(commands.Cog):
             return f"module={r.module}"
         if r.command:
             return f"command={r.command}"
-        return ""
+        return "mod"
 
     async def _reply(
         self,

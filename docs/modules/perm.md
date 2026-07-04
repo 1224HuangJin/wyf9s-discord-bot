@@ -14,15 +14,25 @@
 2. 若未命中，回退到 `perm.yaml` 规则
 3. `config.yaml` 始终优先，无法被 `/perm` 覆盖
 
+规则可授予三种粒度：
+
+- **单个模块**（`module`）：该模块下的所有指令。
+- **单个指令**（`command`）：仅该指令。
+- **mod 权限**（`module` 与 `command` 都不填）：等同于 `config.yaml` 的 `mods` 名单，授予**所有 mod 级指令**（`/lock`、`/vc`、`/move-channel`…）。
+
 ## 指令
+
+`/perm` 拆分为三个子指令：`/perm add`、`/perm rm`、`/perm show`。
 
 ### `/perm add` — 添加规则
 
 | 项目 | 说明 |
 | --- | --- |
 | 权限 | Admin（config admins）或服务器管理员（仅限 server scope） |
-| 参数 | `user`（必填，逗号分隔多个用户）、`module` / `command`（二选一）、`global`（bool） |
+| 参数 | `user`（必填，逗号分隔多个用户）、`module`（支持下拉自动补全）/ `command`（二选一，**都不填 = 授予 mod 权限**）、`global`（bool）、`private` |
 
+- `module` 参数支持**动态自动补全**（从 `cogs/` 目录实时列出，缓存 1 秒）。
+- **不指定 `module` 与 `command`** 时，授予该用户「mod 权限」——效果等同配置文件 `mods` 名单，所有 mod 级指令均可用。
 - 服务器管理员仅可添加 `global=False` 的规则。
 
 ### `/perm rm` — 删除规则

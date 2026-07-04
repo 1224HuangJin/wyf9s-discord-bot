@@ -11,8 +11,9 @@ rules: []
 # 示例规则 (通过 /perm 指令管理，不要手动编辑):
 # - id: 1
 #   users: ["123456789", "username"]
-#   module: "tools"             # 可选: 授权整个模块
+#   module: "tools"             # 可选: 授权整个模块 (与 command 互斥)
 #   command: null               # 可选: 授权特定指令 (与 module 互斥)
+#                               # module 与 command 都为 null = 授予 mod 权限 (所有 mod 指令)
 #   global_scope: false         # true = 全局生效, false = 按服务器
 #   guild_id: null              # 服务器 ID (global_scope=true 时为 null)
 #   created_by: 123456789

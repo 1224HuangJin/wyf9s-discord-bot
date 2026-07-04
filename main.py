@@ -124,6 +124,7 @@ else:
 # Shared state that persists across cog reloads
 client.rate_limiter = u.RateLimiter()  # ty:ignore[unresolved-attribute]
 client.perm_store = PermStore()  # ty:ignore[unresolved-attribute]
+u.set_perm_store(client.perm_store)  # ty:ignore[unresolved-attribute]
 
 # endregion setup
 

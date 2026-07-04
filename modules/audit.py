@@ -57,16 +57,21 @@ class AntispamActionView(discord.ui.View):
         )
 
     async def _finalize_button(
-        self, interaction: discord.Interaction, lang: str, action_label: str
+        self, interaction: discord.Interaction, action_key: str
     ) -> None:
-        """成功后: 禁用按钮并改为 '已由 {moderator} {action}', 更新原消息"""
+        """
+        成功后: 禁用按钮并改为 '已由 {moderator} {action}', 更新原消息
+
+        标签属于审计日志消息的一部分, 因此使用服务器语言 (self.lang) 而非操作者语言
+        """
         actor = getattr(interaction.user, "display_name", str(interaction.user))
+        action_label = _t(action_key, self.lang)
         for item in self.children:
             if isinstance(item, discord.ui.Button):
                 item.disabled = True
                 item.label = _t(
                     "antispam.snapshot_button_done",
-                    lang,
+                    self.lang,
                     actor=actor,
                     action=action_label,
                 )[:80]
@@ -99,9 +104,7 @@ class AntispamActionView(discord.ui.View):
                 user,
                 reason=_t("antispam.unban_reason", lang, actor=str(interaction.user)),
             )
-            await self._finalize_button(
-                interaction, lang, _t("antispam.action_unban", lang)
-            )
+            await self._finalize_button(interaction, "antispam.action_unban")
         except discord.NotFound:
             await interaction.response.send_message(
                 _t("antispam.user_not_found_ban", lang), ephemeral=True
@@ -140,9 +143,7 @@ class AntispamActionView(discord.ui.View):
                 None,
                 reason=_t("antispam.unmute_reason", lang, actor=str(interaction.user)),
             )
-            await self._finalize_button(
-                interaction, lang, _t("antispam.action_unmute", lang)
-            )
+            await self._finalize_button(interaction, "antispam.action_unmute")
         except discord.NotFound:
             await interaction.response.send_message(
                 _t("antispam.member_not_found", lang), ephemeral=True

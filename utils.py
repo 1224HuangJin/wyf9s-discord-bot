@@ -137,12 +137,23 @@ def is_admin(user: discord.User | discord.Member, config: "ConfigModel") -> bool
     return is_config_admin(user, config)
 
 
+# Optional dynamic permission store (perm.yaml); registered at startup so that
+# a "mod grant" rule (no module/command) can make is_mod() return True.
+_perm_store: t.Any = None
+
+
+def set_perm_store(store: t.Any) -> None:
+    """注册全局 PermStore 引用, 供 is_mod 查询动态 mod 授权"""
+    global _perm_store
+    _perm_store = store
+
+
 def is_mod(
     user: discord.User | discord.Member,
     config: "ConfigModel",
     guild: discord.Guild | None = None,
 ) -> bool:
-    """是否为 mod (服务器管理员 / 配置 admin / 全局或服务器 mod 名单)"""
+    """是否为 mod (服务器管理员 / 配置 admin / mod 名单 / perm.yaml 动态 mod 授权)"""
     if is_admin(user, config):
         return True
     if is_server_admin(user):
@@ -154,7 +165,13 @@ def is_mod(
             guild_users = config.mods.guilds.get(
                 guild.id, config.mods.guilds.get(str(guild.id), [])
             )
-            return matches_identity(user, guild_users)
+            if matches_identity(user, guild_users):
+                return True
+    # 动态 mod 授权: perm.yaml 中 module/command 均为空的规则
+    if _perm_store is not None and _perm_store.grants_mod(
+        user.id, guild.id if guild is not None else None
+    ):
+        return True
     return False
 
 
@@ -341,6 +358,34 @@ class RateLimiter:
             return False, max(retry_after, 0.0)
         dq.append(now)
         return True, 0.0
+
+
+_cog_names_cache: list[str] = []
+_cog_names_at: float = 0.0
+
+
+def list_cog_names(cache_seconds: float = 1.0) -> list[str]:
+    """
+    列出 cogs/ 目录下的模块名, 结果缓存 `cache_seconds` 秒
+
+    用于 /reload 与 /perm 的模块参数自动补全
+    """
+    global _cog_names_cache, _cog_names_at
+    now = time.monotonic()
+    if _cog_names_cache and now - _cog_names_at < cache_seconds:
+        return _cog_names_cache
+    cogs_dir = os.path.join(os.path.dirname(__file__), "cogs")
+    try:
+        names = sorted(
+            f[:-3]
+            for f in os.listdir(cogs_dir)
+            if f.endswith(".py") and not f.startswith("_")
+        )
+    except OSError:
+        names = []
+    _cog_names_cache = names
+    _cog_names_at = now
+    return names
 
 
 def parse_flags(content: str) -> dict[str, str]:

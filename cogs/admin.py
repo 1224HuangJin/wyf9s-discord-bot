@@ -1,4 +1,3 @@
-import os
 import time
 
 from loguru import logger as l
@@ -26,25 +25,13 @@ class AdminCog(commands.Cog):
         self.c = bot.config  # ty:ignore[unresolved-attribute]
         self.audit: AuditLogger | None = getattr(bot, "audit", None)
         self.lang_store = getattr(bot, "lang_store", None)
-        self._cogs_cache: list[str] = []
-        self._cogs_cache_at: float = 0.0
 
     def _tr(self, source, key: str, **kwargs) -> str:
         return _t(key, lang_of(source, self.lang_store), **kwargs)
 
     def _list_cogs(self) -> list[str]:
-        """列出 cogs 目录下的模块名, 结果缓存 1 秒"""
-        now = time.monotonic()
-        if self._cogs_cache and now - self._cogs_cache_at < 1.0:
-            return self._cogs_cache
-        cogs_dir = os.path.dirname(__file__)
-        self._cogs_cache = sorted(
-            f[:-3]
-            for f in os.listdir(cogs_dir)
-            if f.endswith(".py") and not f.startswith("_")
-        )
-        self._cogs_cache_at = now
-        return self._cogs_cache
+        """列出 cogs 目录下的模块名 (缓存 1 秒)"""
+        return u.list_cog_names()
 
     async def reload_autocomplete(
         self, interaction: discord.Interaction, current: str

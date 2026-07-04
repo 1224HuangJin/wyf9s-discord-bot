@@ -136,6 +136,24 @@ class PermStore:
                 return True
         return False
 
+    def grants_mod(self, user_id: str | int, guild_id: int | None) -> bool:
+        """
+        用户是否拥有「mod 授权」规则 (module 与 command 均为空)
+
+        效果等同于配置文件 mods 名单: 授予所有 mod 级指令权限
+        """
+        sid = str(user_id)
+        for r in self.rules:
+            if sid not in r.users:
+                continue
+            if r.module is not None or r.command is not None:
+                continue
+            if r.global_scope:
+                return True
+            if guild_id is not None and r.guild_id == guild_id:
+                return True
+        return False
+
     def all_rules_sorted(self) -> list[PermRule]:
         return sorted(self.rules, key=lambda r: r.id)
 

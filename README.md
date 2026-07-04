@@ -14,7 +14,7 @@
 | **反垃圾** (`antispam`) | 频道级反垃圾规则：陌生人踢/ban、普通用户超时/踢/ban、自动清理消息、审计日志 |
 | **审计日志** (`audit`) | 可嵌入审计日志服务，仅记录 [ADMIN]/[MOD] 指令、服务器 scope 修改、反垃圾自动处置与错误（全局/按服务器） |
 | **管理** (`admin`) | 指令同步 `/sync`、模块/配置热重载 `/reload`（留空重载全部、`config` 重载配置） |
-| **动态权限** (`perm`) | `/perm add/rm/show` — 动态权限管理，存储于 `perm.yaml`，`config.yaml` 始终优先 |
+| **动态权限** (`perm`) | `/perm add/rm/show` 子指令 — 动态权限管理（按模块 / 指令 / 或不填授予 mod 权限），存储于 `perm.yaml`，`config.yaml` 始终优先 |
 | **公告推送** (`announce`) | `/subscribe` 关注公告频道 |
 | **多语言** (`lang`) | `/lang` 切换用户 / 服务器语言（`zh` / `en`），偏好持久化到 `lang_settings.yaml` |
 
@@ -64,8 +64,9 @@
 | `/vc leave` | Mod/白名单 | 离开语音 |
 | `/sync` | Config Admin | 同步斜杠指令 |
 | `/reload [module]` | Admin | 热重载模块（留空全部 / `config` 重载配置） |
-| `/perm add <user> [module\|command]` | Admin | 添加权限规则 |
+| `/perm add <user> [module\|command]` | Admin | 添加权限规则（module 可下拉选择；都不填 = 授予 mod） |
 | `/perm rm [rid\|user]` | Admin | 删除权限规则 |
+| `/perm show` | Admin | 查看权限规则 |
 | `/subscribe [channel]` | Mod | 关注公告频道 |
 | `/lang [lang] [scope]` | 所有人（server 范围需管理权限） | 切换语言偏好 |
 
