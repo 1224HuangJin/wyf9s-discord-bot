@@ -6,7 +6,6 @@ export default defineConfig({
   title: 'wyf9s-discord-bot',
   description: '多功能 Discord 机器人 · 文档',
 
-  // 使用自定义域名 dc-bot.wyf9.top，站点部署在根路径
   base: '/',
 
   lastUpdated: true,
@@ -40,8 +39,6 @@ export default defineConfig({
           { text: 'GitHub 仓库', link: 'https://github.com/wyf9/wyf9s-discord-bot' },
           { text: 'discord.py 文档', link: 'https://discordpy.readthedocs.io/' },
           { text: '联系开发者', link: 'https://wyf9.top/c' },
-          { text: '服务条款', link: '/legal/tos' },
-          { text: '隐私政策', link: '/legal/privacy' },
           { text: 'config.example.yaml', link: 'https://github.com/wyf9/wyf9s-discord-bot/blob/main/config.example.yaml' },
           { text: 'perm.example.yaml', link: 'https://github.com/wyf9/wyf9s-discord-bot/blob/main/perm.example.yaml' },
         ],
