@@ -377,46 +377,91 @@ class ClearMessageService:
         too_old_count = 0
         channel_map = {ch.id: ch for ch in target_channels}
 
+        # 超过 14 天的消息无法通过 bulk delete 删除 (Discord 限制),
+        # 只能逐条 Message.delete() (不受 14 天限制) 删除。
+        # 为避免逐条删除触发大量 API 调用/限速, 仅当此类消息总数不超过
+        # 配置阈值 (tools.clear-single-delete-max) 时才回退为逐条删除。
+        bulk_deletable_seconds = 14 * 86400 - 300
+
+        def is_bulk_deletable(msg: discord.Message) -> bool:
+            return (now - msg.created_at).total_seconds() < bulk_deletable_seconds
+
+        single_delete_max = getattr(self.c.tools, "clear_single_delete_max", 0)
+        old_message_total = sum(
+            1
+            for messages in checked_messages_by_channel.values()
+            for msg in messages
+            if not is_bulk_deletable(msg)
+        )
+        fallback_single_delete = (
+            single_delete_max > 0 and old_message_total <= single_delete_max
+        )
+
         for channel_id, messages in checked_messages_by_channel.items():
             target_channel = channel_map.get(channel_id)
             if target_channel is None:
                 failed_count += len(messages)
                 continue
             messages.sort(key=lambda m: m.created_at, reverse=True)
-            for i in range(0, len(messages), 100):
-                batch = messages[i : i + 100]
-                valid_batch = [
-                    msg
-                    for msg in batch
-                    if (now - msg.created_at).total_seconds() < (14 * 86400 - 300)
-                ]
-                if not valid_batch:
-                    too_old_count += len(batch)
-                    continue
+            recent_messages = [m for m in messages if is_bulk_deletable(m)]
+            old_messages = [m for m in messages if not is_bulk_deletable(m)]
+
+            # 近 14 天内的消息: 使用 bulk delete (每批最多 100 条)
+            for i in range(0, len(recent_messages), 100):
+                batch = recent_messages[i : i + 100]
                 try:
-                    if len(valid_batch) == 1:
-                        await valid_batch[0].delete()
+                    if len(batch) == 1:
+                        await batch[0].delete()
                         success_count += 1
                     else:
-                        await target_channel.delete_messages(valid_batch)
-                        success_count += len(valid_batch)
+                        await target_channel.delete_messages(batch)
+                        success_count += len(batch)
                 except discord.Forbidden:
                     return _t("clearmsg.forbidden", lang, channel=target_channel.name)
                 except discord.HTTPException as e:
                     if e.code == 50034:
-                        too_old_count += len(valid_batch)
+                        too_old_count += len(batch)
                     elif e.code == 10008:
                         pass
                     else:
                         l.error(
                             f"[clear-message] Bulk delete error (channel={target_channel.id}, batch={i}:{i + len(batch)}): {e}"
                         )
-                        failed_count += len(valid_batch)
+                        failed_count += len(batch)
                 except Exception as e:
                     l.error(
                         f"[clear-message] Bulk delete error (channel={target_channel.id}): {e}"
                     )
-                    failed_count += len(valid_batch)
+                    failed_count += len(batch)
+
+            # 超过 14 天的消息: 数量较少时回退为逐条删除, 否则计入 too_old
+            if old_messages:
+                if not fallback_single_delete:
+                    too_old_count += len(old_messages)
+                    continue
+                for msg in old_messages:
+                    try:
+                        await msg.delete()
+                        success_count += 1
+                    except discord.Forbidden:
+                        return _t(
+                            "clearmsg.forbidden", lang, channel=target_channel.name
+                        )
+                    except discord.NotFound:
+                        pass
+                    except discord.HTTPException as e:
+                        if e.code == 10008:
+                            pass
+                        else:
+                            l.warning(
+                                f"[clear-message] Single delete error (channel={target_channel.id}, msg={msg.id}): {e}"
+                            )
+                            failed_count += 1
+                    except Exception as e:
+                        l.warning(
+                            f"[clear-message] Single delete error (channel={target_channel.id}, msg={msg.id}): {e}"
+                        )
+                        failed_count += 1
 
         scope_text = _t(
             "clearmsg.scope_channel" if scope == "channel" else "clearmsg.scope_server",

@@ -62,6 +62,7 @@ tools:
   enabled: false
   slash: true
   prefix: true
+  clear-single-delete-max: 20 # clear-message: 超 14 天不可批量删的消息数 <= 此值时回退逐条删除 (0 = 禁用)
   ratelimit:                  # 限速 (仅作用于 random / uuid / to-file)
     enabled: true             # 是否启用限速
     window: 60                # 时间窗口 (秒)

@@ -284,6 +284,8 @@ class _ToolsConfigModel(BaseModel):
     指令: random, uuid, delete, clear-message, move-channel, sync
     """
 
+    model_config = ConfigDict(populate_by_name=True)
+
     enabled: bool = False
     """是否启用工具模块"""
 
@@ -295,6 +297,18 @@ class _ToolsConfigModel(BaseModel):
 
     ratelimit: _ToolsRateLimitConfigModel = _ToolsRateLimitConfigModel()
     """限速配置 (random / uuid / 2file)"""
+
+    clear_single_delete_max: int = Field(
+        default=20, alias="clear-single-delete-max"
+    )
+    """clear-message 批量清理时, 若超过 14 天不可批量删除的消息数不超过此值,
+    则回退为逐条删除以规避 bulk delete 的 14 天限制; 设为 0 表示禁用回退"""
+
+    @field_validator("clear_single_delete_max", mode="before")
+    def normalize_clear_single_delete_max(cls, v):
+        if v in (None, False):
+            return 0
+        return v
 
 
 class _LockConfigModel(BaseModel):

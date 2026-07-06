@@ -277,7 +277,7 @@ class AuditLogger:
                 kwargs["embed"] = embed
             if view:
                 kwargs["view"] = view
-            return await target.send(**kwargs)  # ty:ignore[no-matching-overload]
+            return await target.send(**kwargs)
         except discord.Forbidden:
             l.warning(f"[audit] No permission to send to log channel {channel_id}")
         except discord.NotFound:

@@ -154,9 +154,9 @@ class ToolsCog(commands.Cog):
         view = (
             ClearMessageResultView(self, interaction.guild)
             if CLEAR_MESSAGE_MARKER in result
-            else None
+            else discord.utils.MISSING
         )
-        await interaction.followup.send(result, ephemeral=True, view=view)  # ty:ignore[invalid-argument-type]
+        await interaction.followup.send(result, ephemeral=True, view=view)
 
     @app_commands.command(name="move-channel", description=ls("tools.cmd_move_desc"))
     @app_commands.describe(
@@ -313,8 +313,12 @@ class ToolsCog(commands.Cog):
             end=end,
         )
         is_success = CLEAR_MESSAGE_MARKER in result
-        view = ClearMessageResultView(self, ctx.guild) if is_success else None
-        await ctx.send(self._mark_clear_message(result), view=view)  # ty:ignore[no-matching-overload]
+        view = (
+            ClearMessageResultView(self, ctx.guild)
+            if is_success
+            else discord.utils.MISSING
+        )
+        await ctx.send(self._mark_clear_message(result), view=view)
 
     @commands.command(name="move-channel")
     @u.requires(u.Permission.MOD, perm_module="tools")

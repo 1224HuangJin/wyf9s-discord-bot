@@ -478,7 +478,7 @@ class PermCog(commands.Cog):
             kwargs = {}
             if file:
                 kwargs["file"] = file
-            await u.send_msg(source, content, ephemeral=ephemeral, **kwargs)  # ty:ignore[invalid-argument-type]
+            await u.send_msg(source, content, ephemeral=ephemeral, **kwargs)
 
 
 async def setup(bot: commands.Bot):
