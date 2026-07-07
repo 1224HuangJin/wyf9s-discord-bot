@@ -140,12 +140,29 @@ def is_admin(user: discord.User | discord.Member, config: "ConfigModel") -> bool
 # Optional dynamic permission store (perm.yaml); registered at startup so that
 # a "mod grant" rule (no module/command) can make is_mod() return True.
 _perm_store: t.Any = None
+_bot_guild_lookup: t.Callable[[int, int | str], discord.Member | None] | None = None
 
 
 def set_perm_store(store: t.Any) -> None:
     """注册全局 PermStore 引用, 供 is_mod 查询动态 mod 授权"""
     global _perm_store
     _perm_store = store
+
+
+def set_bot_guild_lookup(
+    lookup: t.Callable[[int, int | str], discord.Member | None] | None,
+) -> None:
+    global _bot_guild_lookup
+    _bot_guild_lookup = lookup
+
+
+def parse_bool(value: str) -> bool:
+    normalized = value.strip().lower()
+    if normalized in {"true", "1", "yes", "y", "t"}:
+        return True
+    if normalized in {"false", "0", "no", "n", "f"}:
+        return False
+    raise ValueError(value)
 
 
 def is_mod(

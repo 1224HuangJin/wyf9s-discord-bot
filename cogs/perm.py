@@ -31,6 +31,7 @@ class PermCog(commands.Cog):
         self.perm_store: PermStore = getattr(bot, "perm_store", PermStore())
         bot.perm_store = self.perm_store  # ty:ignore[unresolved-attribute]
         u.set_perm_store(self.perm_store)
+        u.set_bot_guild_lookup(self._lookup_member)
         self.lang_store = getattr(bot, "lang_store", None)
 
     def _tr(self, source, key: str, **kwargs) -> str:
@@ -46,6 +47,31 @@ class PermCog(commands.Cog):
             if cur in name.lower()
         ][:25]
 
+    @staticmethod
+    def _bool_choices() -> list[app_commands.Choice[int]]:
+        return [
+            app_commands.Choice(name="True", value=1),
+            app_commands.Choice(name="False", value=0),
+        ]
+
+    @staticmethod
+    def _scope_choices() -> list[app_commands.Choice[str]]:
+        return [
+            app_commands.Choice(name="server", value="server"),
+            app_commands.Choice(name="global", value="global"),
+        ]
+
+    def _lookup_member(
+        self, guild_id: int, user_id: int | str
+    ) -> discord.Member | None:
+        guild = self.bot.get_guild(guild_id)
+        if guild is None:
+            return None
+        uid = (
+            int(user_id) if isinstance(user_id, str) and user_id.isdigit() else user_id
+        )
+        return guild.get_member(uid) if isinstance(uid, int) else None
+
     # ========== /perm add | rm | show ==========
 
     perm_group = app_commands.Group(name="perm", description=ls("perm.cmd_desc"))
@@ -53,56 +79,80 @@ class PermCog(commands.Cog):
     @perm_group.command(name="add", description=ls("perm.cmd_add_desc"))
     @app_commands.describe(
         user=ls("perm.param_user"),
+        role=ls("perm.param_role"),
         module=ls("perm.param_module"),
         command=ls("perm.param_command"),
         global_scope=ls("perm.param_global_scope"),
         private=ls("perm.param_private"),
     )
+    @app_commands.choices(global_scope=_bool_choices(), private=_bool_choices())
     @app_commands.autocomplete(module=module_autocomplete)
     @u.requires(_perm_permission)
     async def perm_add(
         self,
         interaction: discord.Interaction,
-        user: str,
+        user: str | None = None,
+        role: discord.Role | None = None,
         module: str | None = None,
         command: str | None = None,
-        global_scope: bool = False,
-        private: bool = False,
+        global_scope: int = 0,
+        private: int = 0,
     ):
-        await self._perm_add(interaction, user, module, command, global_scope, private)
+        await self._perm_add(
+            interaction, user, role, module, command, bool(global_scope), bool(private)
+        )
 
     @perm_group.command(name="rm", description=ls("perm.cmd_rm_desc"))
     @app_commands.describe(
         user=ls("perm.param_user"),
+        role=ls("perm.param_role"),
         module=ls("perm.param_module"),
         command=ls("perm.param_command"),
         rid=ls("perm.param_rid"),
         global_scope=ls("perm.param_global_scope"),
         private=ls("perm.param_private"),
     )
+    @app_commands.choices(global_scope=_bool_choices(), private=_bool_choices())
     @app_commands.autocomplete(module=module_autocomplete)
     @u.requires(_perm_permission)
     async def perm_rm(
         self,
         interaction: discord.Interaction,
         user: str | None = None,
+        role: discord.Role | None = None,
         module: str | None = None,
         command: str | None = None,
         rid: int | None = None,
-        global_scope: bool = False,
-        private: bool = False,
+        global_scope: int = 0,
+        private: int = 0,
     ):
         await self._perm_rm(
-            interaction, user, module, command, rid, global_scope, private
+            interaction,
+            user,
+            role,
+            module,
+            command,
+            rid,
+            bool(global_scope),
+            bool(private),
         )
 
     @perm_group.command(name="show", description=ls("perm.cmd_show_desc"))
     @app_commands.describe(
         user=ls("perm.param_user"),
+        role=ls("perm.param_role"),
         module=ls("perm.param_module"),
         command=ls("perm.param_command"),
         scope=ls("perm.param_scope"),
         private=ls("perm.param_private"),
+        show_server_mods=ls("perm.param_show_server_mods"),
+        show_global=ls("perm.param_show_global"),
+    )
+    @app_commands.choices(  # ty:ignore[invalid-argument-type]
+        scope=_scope_choices(),
+        private=_bool_choices(),
+        show_server_mods=_bool_choices(),
+        show_global=_bool_choices(),
     )
     @app_commands.autocomplete(module=module_autocomplete)
     @u.requires(_perm_permission)
@@ -110,17 +160,31 @@ class PermCog(commands.Cog):
         self,
         interaction: discord.Interaction,
         user: str | None = None,
+        role: discord.Role | None = None,
         module: str | None = None,
         command: str | None = None,
         scope: str = "server",
-        private: bool = False,
+        private: int = 0,
+        show_server_mods: int = 1,
+        show_global: int = 0,
     ):
-        await self._perm_show(interaction, user, module, command, scope, private)
+        await self._perm_show(
+            interaction,
+            user,
+            role,
+            module,
+            command,
+            scope,
+            bool(private),
+            bool(show_server_mods),
+            bool(show_global),
+        )
 
     async def _perm_add(
         self,
         source,
         user: str | None,
+        role: discord.Role | None,
         module: str | None,
         command: str | None,
         global_scope: bool,
@@ -140,10 +204,10 @@ class PermCog(commands.Cog):
             )
             return
 
-        if not user:
+        if bool(user) == bool(role):
             await self._reply(
                 source,
-                self._tr(source, "perm.user_required"),
+                self._tr(source, "perm.user_role_required"),
                 ephemeral=True,
                 private=private,
             )
@@ -160,8 +224,11 @@ class PermCog(commands.Cog):
 
         # neither module nor command -> grant mod (all mod commands)
 
-        users = [u.strip() for u in user.split(",") if u.strip()]
-        if not users:
+        users = (
+            [part.strip() for part in user.split(",") if part.strip()] if user else []
+        )
+        roles = [str(role.id)] if role else []
+        if not users and not roles:
             await self._reply(
                 source,
                 self._tr(source, "perm.no_valid_users"),
@@ -174,6 +241,7 @@ class PermCog(commands.Cog):
 
         rule = self.perm_store.add(
             users=users,
+            roles=roles,
             module=module.lower() if module else None,
             command=command.lower() if command else None,
             global_scope=global_scope,
@@ -190,8 +258,15 @@ class PermCog(commands.Cog):
         )
         msg_lines = [
             self._tr(source, "perm.rule_added", id=rule.id),
-            self._tr(source, "perm.rule_added_users", users=", ".join(users)),
         ]
+        if users:
+            msg_lines.append(
+                self._tr(source, "perm.rule_added_users", users=", ".join(users))
+            )
+        if role:
+            msg_lines.append(
+                self._tr(source, "perm.rule_added_role", role=role.name, id=role.id)
+            )
         if module:
             msg_lines.append(self._tr(source, "perm.rule_added_module", module=module))
         elif command:
@@ -222,7 +297,7 @@ class PermCog(commands.Cog):
                 channel=source.channel,
                 detail=(
                     f"Added perm rule {rule.id}: users={users} "
-                    f"module={module} command={command} global={global_scope}"
+                    f"roles={roles} module={module} command={command} global={global_scope}"
                 ),
             )
 
@@ -230,6 +305,7 @@ class PermCog(commands.Cog):
         self,
         source,
         user: str | None,
+        role: discord.Role | None,
         module: str | None,
         command: str | None,
         rid: int | None,
@@ -256,7 +332,7 @@ class PermCog(commands.Cog):
                     source,
                     "perm.rule_removed",
                     rid=rid,
-                    users=", ".join(r.users),
+                    subjects=self._rule_subject(r),
                     target=self._rule_target(r),
                 ),
                 ephemeral=False,
@@ -272,10 +348,19 @@ class PermCog(commands.Cog):
                 )
             return
 
-        if not user and not module and not command:
+        if not user and role is None and not module and not command:
             await self._reply(
                 source,
                 self._tr(source, "perm.rm_need_args"),
+                ephemeral=True,
+                private=private,
+            )
+            return
+
+        if user and role is not None:
+            await self._reply(
+                source,
+                self._tr(source, "perm.user_role_required"),
                 ephemeral=True,
                 private=private,
             )
@@ -285,6 +370,7 @@ class PermCog(commands.Cog):
         guild_id = source.guild.id if source.guild else None
         matches = self.perm_store.find(
             user=user,
+            role=role.id if role else None,
             module=module,
             command=command,
             scope=scope,
@@ -307,9 +393,7 @@ class PermCog(commands.Cog):
 
         lines = [self._tr(source, "perm.removed_count", count=len(removed))]
         for r in removed:
-            lines.append(
-                f"  `{r.id}`: users=`{', '.join(r.users)}` {self._rule_target(r)}"
-            )
+            lines.append(f"  `{r.id}`: {self._rule_subject(r)} {self._rule_target(r)}")
 
         await self._reply(source, "\n".join(lines), ephemeral=False, private=private)
 
@@ -326,40 +410,47 @@ class PermCog(commands.Cog):
         self,
         source,
         user: str | None,
+        role: discord.Role | None,
         module: str | None,
         command: str | None,
         scope: str,
         private: bool,
+        show_server_mods: bool,
+        show_global: bool,
     ):
+        actor = (
+            source.user if isinstance(source, discord.Interaction) else source.author
+        )
+        is_config_admin = u.is_admin(actor, self.c)
         guild_id = source.guild.id if source.guild else None
         guild = source.guild
 
-        # Show server admins as built-in :lock: entries
-        srv_admin_lines: list[str] = []
-        if scope == "server" and guild:
-            config_admins = {str(x) for x in self.c.admins.users}
-            for member in guild.members:
-                if member.guild_permissions.administrator:
-                    uid = str(member.id)
-                    if uid not in config_admins:
-                        srv_admin_lines.append(
-                            self._tr(
-                                source,
-                                "perm.show_builtin_admin",
-                                name=member.name,
-                                id=uid,
-                            )
-                        )
+        builtin_lines: list[str] = []
+        if scope == "server" and guild and show_server_mods:
+            builtin_lines.extend(self._collect_builtin_mod_lines(source, guild))
+
+        global_lines: list[str] = []
+        if private and show_global:
+            if not is_config_admin:
+                await self._reply(
+                    source,
+                    self._tr(source, "perm.no_permission_show_global"),
+                    ephemeral=True,
+                    private=False,
+                )
+                return
+            global_lines = self._collect_global_visibility_lines(source)
 
         rules = self.perm_store.find(
             user=user,
+            role=role.id if role else None,
             module=module,
             command=command,
             scope=scope,
             guild_id=guild_id,
         )
 
-        if not rules and not srv_admin_lines:
+        if not rules and not builtin_lines and not global_lines:
             await self._reply(
                 source,
                 self._tr(source, "perm.no_rules"),
@@ -369,10 +460,15 @@ class PermCog(commands.Cog):
             return
 
         lines = [self._tr(source, "perm.show_header", scope=scope, count=len(rules))]
-        if srv_admin_lines:
+        if builtin_lines:
             lines.append(self._tr(source, "perm.show_builtin_header"))
-            lines.extend(srv_admin_lines)
+            lines.extend(builtin_lines)
             if rules:
+                lines.append(self._tr(source, "perm.show_dynamic_header"))
+        if global_lines:
+            lines.append(self._tr(source, "perm.show_global_header"))
+            lines.extend(global_lines)
+            if rules and self._tr(source, "perm.show_dynamic_header") not in lines:
                 lines.append(self._tr(source, "perm.show_dynamic_header"))
         config_users = {str(x) for x in self.c.admins.users}
         for r in rules:
@@ -382,7 +478,7 @@ class PermCog(commands.Cog):
             scope_str = ":globe_with_meridians:" if r.global_scope else ":homes:"
             rule_line = (
                 f"`{r.id}`{lock_str} {scope_str} "
-                f"users=`{', '.join(r.users)}` "
+                f"{self._rule_subject(r)} "
                 f"{self._rule_target(r)}"
             )
             lines.append(rule_line)
@@ -409,6 +505,67 @@ class PermCog(commands.Cog):
         if r.command:
             return f"command={r.command}"
         return "mod"
+
+    @staticmethod
+    def _rule_subject(r) -> str:
+        parts = []
+        if r.users:
+            parts.append(f"users=`{', '.join(r.users)}`")
+        if r.roles:
+            parts.append(f"roles=`{', '.join(r.roles)}`")
+        return " ".join(parts) if parts else "subjects=`-`"
+
+    def _collect_builtin_mod_lines(self, source, guild: discord.Guild) -> list[str]:
+        owner_id = guild.owner_id
+        config_admins = {str(x) for x in self.c.admins.users}
+        config_mods = {str(x) for x in self.c.mods.users}
+        guild_mods = {
+            str(x)
+            for x in self.c.mods.guilds.get(
+                guild.id, self.c.mods.guilds.get(str(guild.id), [])
+            )
+        }
+        lines: list[str] = []
+        seen: set[int] = set()
+        ordered_members = sorted(guild.members, key=lambda m: (m.id != owner_id, m.id))
+        for member in ordered_members:
+            uid = str(member.id)
+            if member.id == owner_id:
+                lines.append(
+                    self._tr(
+                        source, "perm.show_builtin_owner", name=member.name, id=uid
+                    )
+                )
+                seen.add(member.id)
+        for member in ordered_members:
+            uid = str(member.id)
+            if member.id in seen:
+                continue
+            if member.guild_permissions.administrator and uid not in config_admins:
+                lines.append(
+                    self._tr(
+                        source, "perm.show_builtin_admin", name=member.name, id=uid
+                    )
+                )
+                seen.add(member.id)
+        for member in ordered_members:
+            uid = str(member.id)
+            if member.id in seen:
+                continue
+            if uid in config_mods or uid in guild_mods:
+                lines.append(
+                    self._tr(source, "perm.show_builtin_mod", name=member.name, id=uid)
+                )
+                seen.add(member.id)
+        return lines
+
+    def _collect_global_visibility_lines(self, source) -> list[str]:
+        lines = []
+        for uid in self.c.admins.users:
+            lines.append(self._tr(source, "perm.show_global_admin", id=uid))
+        for uid in self.c.mods.users:
+            lines.append(self._tr(source, "perm.show_global_mod", id=uid))
+        return lines
 
     async def _reply(
         self,
@@ -475,10 +632,7 @@ class PermCog(commands.Cog):
                     content, ephemeral=ephemeral, **kwargs
                 )
         else:
-            kwargs = {}
-            if file:
-                kwargs["file"] = file
-            await u.send_msg(source, content, ephemeral=ephemeral, **kwargs)
+            await u.send_msg(source, content, ephemeral=ephemeral, file=file)
 
 
 async def setup(bot: commands.Bot):

@@ -29,10 +29,10 @@
 | 项目 | 说明 |
 | --- | --- |
 | 权限 | Admin（config admins）或服务器管理员（仅限 server scope） |
-| 参数 | `user`（必填，逗号分隔多个用户）、`module`（支持下拉自动补全）/ `command`（二选一，**都不填 = 授予 mod 权限**）、`global`（bool）、`private` |
+| 参数 | `user` / `role`（二选一必填）、`module`（支持下拉自动补全）/ `command`（二选一，**都不填 = 授予 mod 权限**）、`global`（bool 选项）、`private`（bool 选项） |
 
 - `module` 参数支持**动态自动补全**（从 `cogs/` 目录实时列出，缓存 1 秒）。
-- **不指定 `module` 与 `command`** 时，授予该用户「mod 权限」——效果等同配置文件 `mods` 名单，所有 mod 级指令均可用。
+- **不指定 `module` 与 `command`** 时，授予该用户或身份组「mod 权限」——效果等同配置文件 `mods` 名单，所有 mod 级指令均可用。
 - 服务器管理员仅可添加 `global=False` 的规则。
 
 ### `/perm rm` — 删除规则
@@ -40,16 +40,17 @@
 | 项目 | 说明 |
 | --- | --- |
 | 权限 | Admin 或服务器管理员 |
-| 参数 | `rid`（规则 ID）或 `user` / `module` / `command` 组合筛选 |
+| 参数 | `rid`（规则 ID）或 `user` / `role` / `module` / `command` 组合筛选 |
 
 ### `/perm show` — 查看规则
 
 | 项目 | 说明 |
 | --- | --- |
 | 权限 | Admin 或服务器管理员 |
-| 参数 | `user`、`module`、`command`（可选筛选）、`scope`（`server` 默认 / `global`）、`private`（DM 发送） |
+| 参数 | `user`、`role`、`module`、`command`（可选筛选）、`scope`（`server` / `global` 选项）、`private`、`show_server_mods`、`show_global` |
 
-- 服务器管理员自动显示 :lock: 标记
+- 默认显示因服务器拥有者、服务器管理员、bot mods 身份而天然拥有 mod 权限的成员，顺序为「拥有者 > 服务器管理员 > bot mods」，可通过 `show_server_mods` 关闭
+- 仅 config admin 可在 `private=true` 时通过 `show_global=true` 同时查看全局 `admins` / `mods`
 - 结果超过 2000 字符时以 `.md` 文件附件发送
 
 ## 配置

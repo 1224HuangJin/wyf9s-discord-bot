@@ -11,6 +11,7 @@ import utils as u
 class PermRule(BaseModel):
     id: int
     users: list[str] = Field(default_factory=list)
+    roles: list[str] = Field(default_factory=list)
     module: str | None = None
     command: str | None = None
     global_scope: bool = False
@@ -21,6 +22,10 @@ class PermRule(BaseModel):
     def matches_user(self, user_id: str | int) -> bool:
         sid = str(user_id)
         return sid in self.users
+
+    def matches_role(self, role_id: str | int) -> bool:
+        sid = str(role_id)
+        return sid in self.roles
 
 
 class PermStore:
@@ -54,6 +59,7 @@ class PermStore:
     def add(
         self,
         users: list[str],
+        roles: list[str],
         module: str | None,
         command: str | None,
         global_scope: bool,
@@ -63,6 +69,7 @@ class PermStore:
         rule = PermRule(
             id=self._next_id,
             users=users,
+            roles=roles,
             module=module,
             command=command,
             global_scope=global_scope,
@@ -91,6 +98,7 @@ class PermStore:
     def find(
         self,
         user: str | int | None = None,
+        role: str | int | None = None,
         module: str | None = None,
         command: str | None = None,
         scope: str = "server",
@@ -103,6 +111,8 @@ class PermStore:
             if scope == "server" and r.global_scope:
                 continue
             if user is not None and not r.matches_user(user):
+                continue
+            if role is not None and not r.matches_role(role):
                 continue
             if module is not None and r.module != module:
                 continue
@@ -121,8 +131,11 @@ class PermStore:
         command: str | None = None,
     ) -> bool:
         sid = str(user_id)
+        role_ids = set()
+        if guild_id is not None:
+            role_ids = self._get_member_role_ids(user_id, guild_id)
         for r in self.rules:
-            if sid not in r.users:
+            if sid not in r.users and not (role_ids and role_ids & set(r.roles)):
                 continue
             if r.global_scope:
                 pass
@@ -143,8 +156,11 @@ class PermStore:
         效果等同于配置文件 mods 名单: 授予所有 mod 级指令权限
         """
         sid = str(user_id)
+        role_ids = set()
+        if guild_id is not None:
+            role_ids = self._get_member_role_ids(user_id, guild_id)
         for r in self.rules:
-            if sid not in r.users:
+            if sid not in r.users and not (role_ids and role_ids & set(r.roles)):
                 continue
             if r.module is not None or r.command is not None:
                 continue
@@ -156,6 +172,19 @@ class PermStore:
 
     def all_rules_sorted(self) -> list[PermRule]:
         return sorted(self.rules, key=lambda r: r.id)
+
+    def _get_member_role_ids(self, user_id: str | int, guild_id: int) -> set[str]:
+        guild = getattr(u, "_bot_guild_lookup", None)
+        if guild is None:
+            return set()
+        member = guild(guild_id, int(user_id) if str(user_id).isdigit() else user_id)
+        if member is None:
+            return set()
+        return {
+            str(role.id)
+            for role in getattr(member, "roles", [])
+            if not role.is_default()
+        }
 
     def __len__(self) -> int:
         return len(self.rules)

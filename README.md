@@ -64,7 +64,7 @@
 | `/vc leave` | Mod/白名单 | 离开语音 |
 | `/sync` | Config Admin | 同步斜杠指令 |
 | `/reload [module]` | Admin | 热重载模块（留空全部 / `config` 重载配置） |
-| `/perm add <user> [module\|command]` | Admin | 添加权限规则（module 可下拉选择；都不填 = 授予 mod） |
+| `/perm add <user\|role> [module\|command]` | Admin | 添加权限规则（`user` 与 `role` 二选一；module 可下拉选择；都不填 = 授予 mod） |
 | `/perm rm [rid\|user]` | Admin | 删除权限规则 |
 | `/perm show` | Admin | 查看权限规则 |
 | `/subscribe [channel]` | Mod | 关注公告频道 |
