@@ -52,8 +52,8 @@ antispam:
 
 lang:
   command_description: "设置语言偏好"
-  param_lang_description: "语言 (zh / en)"
-  param_scope_description: "范围: user (默认) / server"
+  param_lang_description: "语言选项"
+  param_scope_description: "范围选项"
   set_user: "你的语言偏好已设置为 {lang}"
   set_server: "本服务器的语言偏好已设置为 {lang}"
   show_user: "你的语言偏好: {lang}"
@@ -108,7 +108,7 @@ tools:
   param_clear_content_pattern: "内容通配符 (fnmatch, 如 \"*error*\")"
   param_clear_message_count: "每个频道最大消息数 (0 = 不限)"
   param_clear_within_minutes: "仅 N 分钟内的消息"
-  param_clear_scope: "\"channel\" (默认) 或 \"server\""
+  param_clear_scope: "清理范围选项"
   param_clear_channel: "目标频道 (仅 scope=channel)"
   param_clear_start: "起始: 消息 ID 或时间 (如 \"30m\"/\"2h\"/\"1d\"/ISO)"
   param_clear_end: "结束: 消息 ID 或时间"
@@ -174,7 +174,7 @@ lock:
   param_plan_lock_time: "锁定时间 (hh-mm)"
   param_plan_unlock_day: "解锁日期 (yyyy-mm-dd / mm-dd / dd)"
   param_plan_unlock_time: "解锁时间 (hh-mm)"
-  param_plan_cycle: "周期 (daily / mon,tue,... / 1,2,3 / 1-5)"
+  param_plan_cycle: "周期选项或自定义规则"
   param_plan_cycle_start: "周期开始 (yyyy-mm-dd)"
   param_plan_cycle_end: "周期结束 (yyyy-mm-dd)"
   param_unplan_index: "要取消的计划索引"

@@ -32,7 +32,7 @@ class EmojiCog(commands.Cog):
 
     def cog_load(self):
         if not getattr(self.bot, "emoji_data", None):
-            self.bot.emoji_data = EmojiModel()  # ty:ignore[invalid-assignment]
+            self.bot.emoji_data = EmojiModel()  # ty:ignore[unresolved-attribute]
 
     @property
     def emoji_data(self) -> EmojiModel:
@@ -244,7 +244,7 @@ class EmojiCog(commands.Cog):
         )
         if succ:
             try:
-                self.bot.emoji_data = EmojiModel.model_validate(resp)  # ty:ignore[invalid-assignment]
+                self.bot.emoji_data = EmojiModel.model_validate(resp)  # ty:ignore[unresolved-attribute]
             except ValidationError as e:
                 l.warning(f"[emoji] Emoji list sync failed! \n{e}")
                 return False, str(e)

@@ -266,7 +266,7 @@ class AdminCog(commands.Cog):
             return
 
         # Update shared config references, then reload cogs so they pick it up
-        self.bot.config = new_config  # ty:ignore[invalid-assignment]
+        self.bot.config = new_config  # ty:ignore[unresolved-attribute]
         self.c = new_config
         if self.audit:
             self.audit.c = new_config
