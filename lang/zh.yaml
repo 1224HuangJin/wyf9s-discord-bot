@@ -22,6 +22,7 @@ audit:
   snapshot_content_embed: "[嵌入消息]"
   snapshot_content_attachment: "[仅附件消息]"
   snapshot_footer: "消息 ID: {id}"
+  processing: ":hourglass_flowing_sand: 处理中..."
 
 antispam:
   snapshot_title: "消息快照"

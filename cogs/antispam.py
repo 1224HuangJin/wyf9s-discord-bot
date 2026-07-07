@@ -107,6 +107,11 @@ class AntiSpamCog(commands.Cog):
         mention = member.mention
         if should_ping:
             return _t("antispam.public_notice_hacked", lang, mention=mention)
+        # kick/ban removes the member from the guild, so the mention will
+        # eventually render as "unknown user"; append the username after the
+        # ping to keep the notice identifiable over time.
+        if action_label in ("kick", "ban"):
+            mention = f"{mention} (`{member.name}`)"
         category_label = _t(f"antispam.category_{category}", lang)
         return _t(
             "antispam.public_notice_triggered",
@@ -235,6 +240,14 @@ class AntiSpamCog(commands.Cog):
             )
             return False, category, "failed", False
 
+        # 转发触发消息 + 回复 "处理中..." 占位, 必须在 cleanup 删除原消息前执行,
+        # 使转发副本 (含图片/附件) 得以保留
+        pending: dict[int, discord.Message] = {}
+        if self.audit:
+            pending = await self.audit.forward_antispam_trigger(
+                guild=guild, trigger_message=trigger_message
+            )
+
         clear_result = await self._cleanup_messages(
             actor=actor,
             guild=guild,
@@ -261,6 +274,7 @@ class AntiSpamCog(commands.Cog):
                 trigger_message=trigger_message,
                 category=category,
                 action_label=action_label,
+                pending=pending,
             )
 
         return True, category, action_label, should_ping

@@ -22,6 +22,7 @@ audit:
   snapshot_content_embed: "[Embed message]"
   snapshot_content_attachment: "[Attachment-only message]"
   snapshot_footer: "Message ID: {id}"
+  processing: ":hourglass_flowing_sand: Processing..."
 
 antispam:
   snapshot_title: "Message Snapshot"
@@ -46,7 +47,7 @@ antispam:
   member_not_found: ":x: Member not found in this server"
   action_unban: "Unban"
   action_unmute: "Unmute"
-  public_notice_hacked: ":rotating_light: {mention} Account looks compromised - temporarily muted. Contact an admin."
+  public_notice_hacked: ":rotating_light: {mention} Account looks compromised - temporarily muted. Please contact an admin."
   public_notice_triggered: ":rotating_light: Antispam triggered: {mention} -> **{category}/{action}**"
 
 lang:

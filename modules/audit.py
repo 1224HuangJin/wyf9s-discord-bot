@@ -387,6 +387,55 @@ class AuditLogger:
         embed.set_footer(text=_t("audit.snapshot_footer", lang, id=message.id))
         return embed
 
+    async def forward_antispam_trigger(
+        self,
+        *,
+        guild: discord.Guild,
+        trigger_message: discord.Message,
+    ) -> dict[int, discord.Message]:
+        """
+        将触发消息转发到各审计频道, 并回复一个 "处理中..." 占位消息。
+
+        必须在清理 (cleanup) 删除原消息之前调用: 转发会创建一份内容快照,
+        即使原消息随后被删除, 转发副本 (含图片/附件) 依然保留, 避免自建
+        snapshot 在原消息删除后图片链接 404 的问题。
+
+        返回 {channel_id: 占位消息}, 供后续 log_antispam_with_snapshot 编辑。
+        """
+        if not self.c.audit.enabled:
+            return {}
+
+        targets = self._resolve_targets(guild)
+        if not targets:
+            return {}
+
+        lang = self._resolve_lang(guild)
+        pending: dict[int, discord.Message] = {}
+
+        for channel_id in targets:
+            target = self.client.get_channel(channel_id)
+            if target is None:
+                try:
+                    target = await self.client.fetch_channel(channel_id)
+                except (discord.NotFound, discord.Forbidden, discord.HTTPException):
+                    continue
+            if not isinstance(target, (discord.TextChannel, discord.Thread)):
+                l.warning(
+                    f"[audit] Log channel {channel_id} is not a text channel, skipped"
+                )
+                continue
+            try:
+                forwarded = await trigger_message.forward(target)
+                pending[channel_id] = await forwarded.reply(
+                    _t("audit.processing", lang)
+                )
+            except discord.HTTPException as e:
+                l.warning(
+                    f"[audit] Failed to forward trigger message to {channel_id}: {e}"
+                )
+
+        return pending
+
     async def log_antispam_with_snapshot(
         self,
         *,
@@ -398,6 +447,7 @@ class AuditLogger:
         trigger_message: discord.Message,
         category: str,
         action_label: str,
+        pending: dict[int, discord.Message] | None = None,
     ):
         if not self.c.audit.enabled:
             return
@@ -419,17 +469,28 @@ class AuditLogger:
             auto=True,
         )
 
-        snapshot_embed = self._build_message_snapshot_embed(trigger_message, lang)
-
-        view = AntispamActionView(
-            guild_id=guild.id,
-            target_id=user.id,
-            target_name=str(user),
-            action_label=action_label,
-            lang=lang,
-            lang_store=self.lang_store,
-        )
+        pending = pending or {}
 
         for channel_id in targets:
-            await self._send_to_channel(channel_id, embed=embed)
-            await self._send_to_channel(channel_id, embed=snapshot_embed, view=view)
+            view = AntispamActionView(
+                guild_id=guild.id,
+                target_id=user.id,
+                target_name=str(user),
+                action_label=action_label,
+                lang=lang,
+                lang_store=self.lang_store,
+            )
+            placeholder = pending.get(channel_id)
+            if placeholder is not None:
+                # 转发成功: 编辑占位 "处理中..." 消息为最终操作日志
+                try:
+                    await placeholder.edit(content=None, embed=embed, view=view)
+                    continue
+                except discord.HTTPException as e:
+                    l.warning(
+                        f"[audit] Failed to edit placeholder in {channel_id}: {e}"
+                    )
+            # 转发/占位失败时回退: 自建 snapshot embed + 操作日志
+            snapshot_embed = self._build_message_snapshot_embed(trigger_message, lang)
+            await self._send_to_channel(channel_id, embed=snapshot_embed)
+            await self._send_to_channel(channel_id, embed=embed, view=view)
