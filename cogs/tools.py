@@ -68,6 +68,20 @@ class ToolsCog(commands.Cog):
     def _lang(self, source) -> str:
         return lang_of(source, self.lang_store)
 
+    @staticmethod
+    def _bool_choices() -> list[app_commands.Choice[int]]:
+        return [
+            app_commands.Choice(name="True", value=1),
+            app_commands.Choice(name="False", value=0),
+        ]
+
+    @staticmethod
+    def _clear_scope_choices() -> list[app_commands.Choice[str]]:
+        return [
+            app_commands.Choice(name="channel", value="channel"),
+            app_commands.Choice(name="server", value="server"),
+        ]
+
     # ========== Slash Commands ==========
 
     @app_commands.command(name="random", description=ls("tools.cmd_random_desc"))
@@ -91,14 +105,15 @@ class ToolsCog(commands.Cog):
         message_id=ls("tools.param_delete_message_id"),
         show_to_public=ls("tools.param_delete_show_public"),
     )
+    @app_commands.choices(show_to_public=_bool_choices())
     @u.requires(u.Permission.MOD, perm_module="tools")
     async def slash_delete(
         self,
         interaction: discord.Interaction,
         message_id: str,
-        show_to_public: bool = False,
+        show_to_public: int = 0,
     ):
-        await self._handle_delete(interaction, message_id, show_to_public)
+        await self._handle_delete(interaction, message_id, bool(show_to_public))
 
     @app_commands.command(name="clear-message", description=ls("tools.cmd_clear_desc"))
     @app_commands.describe(
@@ -114,6 +129,7 @@ class ToolsCog(commands.Cog):
         start=ls("tools.param_clear_start"),
         end=ls("tools.param_clear_end"),
     )
+    @app_commands.choices(scope=_clear_scope_choices())
     @u.requires(u.Permission.MOD, perm_module="tools")
     async def slash_clear_message(
         self,
@@ -166,6 +182,7 @@ class ToolsCog(commands.Cog):
         after=ls("tools.param_move_after"),
         sync_perm=ls("tools.param_move_sync_perm"),
     )
+    @app_commands.choices(sync_perm=_bool_choices())
     @u.requires(u.Permission.MOD, perm_module="tools")
     async def slash_move_channel(
         self,
@@ -174,10 +191,10 @@ class ToolsCog(commands.Cog):
         category: discord.CategoryChannel | None = None,
         before: discord.abc.GuildChannel | None = None,
         after: discord.abc.GuildChannel | None = None,
-        sync_perm: bool = True,
+        sync_perm: int = 1,
     ):
         await self._handle_move_channel(
-            interaction, target_channel, category, before, after, sync_perm
+            interaction, target_channel, category, before, after, bool(sync_perm)
         )
 
     @app_commands.command(name="to-file", description=ls("tools.cmd_tofile_desc"))
@@ -206,9 +223,17 @@ class ToolsCog(commands.Cog):
     @commands.command(name="delete")
     @u.requires(u.Permission.MOD, perm_module="tools")
     async def prefix_delete(
-        self, ctx: commands.Context, message_id: str, show_to_public: bool = False
+        self, ctx: commands.Context, message_id: str, show_to_public: str = "false"
     ):
-        await self._handle_delete(ctx, message_id, show_to_public)
+        try:
+            parsed = u.parse_bool(show_to_public)
+        except ValueError:
+            await ctx.send(
+                self._tr(ctx, "tools.bool_invalid", value=show_to_public),
+                delete_after=10,
+            )
+            return
+        await self._handle_delete(ctx, message_id, parsed)
 
     @commands.command(name="clear-message")
     @u.requires(u.Permission.MOD, perm_module="tools")
@@ -327,8 +352,18 @@ class ToolsCog(commands.Cog):
         ctx: commands.Context,
         target_channel: discord.abc.GuildChannel | None = None,
         category: discord.CategoryChannel | None = None,
+        sync_perm: str = "true",
     ):
-        await self._handle_move_channel(ctx, target_channel, category, None, None, True)
+        try:
+            parsed = u.parse_bool(sync_perm)
+        except ValueError:
+            await ctx.send(
+                self._tr(ctx, "tools.bool_invalid", value=sync_perm), delete_after=10
+            )
+            return
+        await self._handle_move_channel(
+            ctx, target_channel, category, None, None, parsed
+        )
 
     @commands.command(name="to-file")
     async def prefix_to_file(self, ctx: commands.Context, name: str, *, content: str):

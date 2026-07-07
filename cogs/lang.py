@@ -15,11 +15,26 @@ class LangCog(commands.Cog):
         self.lang_store: LangStore = getattr(bot, "lang_store")
         self.audit: AuditLogger | None = getattr(bot, "audit", None)
 
+    @staticmethod
+    def _lang_choices() -> list[app_commands.Choice[str]]:
+        return [
+            app_commands.Choice(name="zh", value="zh"),
+            app_commands.Choice(name="en", value="en"),
+        ]
+
+    @staticmethod
+    def _scope_choices() -> list[app_commands.Choice[str]]:
+        return [
+            app_commands.Choice(name="user", value="user"),
+            app_commands.Choice(name="server", value="server"),
+        ]
+
     @app_commands.command(name="lang", description=ls("lang.command_description"))
     @app_commands.describe(
         lang=ls("lang.param_lang_description"),
         scope=ls("lang.param_scope_description"),
     )
+    @app_commands.choices(lang=_lang_choices(), scope=_scope_choices())
     async def slash_lang(
         self,
         interaction: discord.Interaction,
