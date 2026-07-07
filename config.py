@@ -298,9 +298,7 @@ class _ToolsConfigModel(BaseModel):
     ratelimit: _ToolsRateLimitConfigModel = _ToolsRateLimitConfigModel()
     """限速配置 (random / uuid / 2file)"""
 
-    clear_single_delete_max: int = Field(
-        default=20, alias="clear-single-delete-max"
-    )
+    clear_single_delete_max: int = Field(default=20, alias="clear-single-delete-max")
     """clear-message 批量清理时, 若超过 14 天不可批量删除的消息数不超过此值,
     则回退为逐条删除以规避 bulk delete 的 14 天限制; 设为 0 表示禁用回退"""
 
