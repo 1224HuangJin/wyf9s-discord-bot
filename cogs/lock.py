@@ -172,14 +172,6 @@ class LockCog(commands.Cog):
         )
         return _t(key, lang, **kwargs)
 
-    @staticmethod
-    def _cycle_choices() -> list[app_commands.Choice[str]]:
-        return [
-            app_commands.Choice(name="daily", value="daily"),
-            app_commands.Choice(name="weekdays", value="mon,tue,wed,thu,fri"),
-            app_commands.Choice(name="weekend", value="sat,sun"),
-        ]
-
     def cog_load(self):
         if not self._check_schedules.is_running():
             self._check_schedules.start()
@@ -231,7 +223,6 @@ class LockCog(commands.Cog):
         cycle_start=ls("lock.param_plan_cycle_start"),
         cycle_end=ls("lock.param_plan_cycle_end"),
     )
-    @app_commands.choices(cycle=_cycle_choices())
     @u.requires(u.Permission.MOD, perm_module="lock")
     async def slash_plan_lock(
         self,

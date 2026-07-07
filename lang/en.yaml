@@ -52,8 +52,8 @@ antispam:
 
 lang:
   command_description: "Set language preference"
-  param_lang_description: "Language option"
-  param_scope_description: "Scope option"
+  param_lang_description: "Language (zh / en)"
+  param_scope_description: "Scope: user (default) / server"
   set_user: "Your language preference has been set to {lang}"
   set_server: "Server language preference has been set to {lang}"
   show_user: "Your language preference: {lang}"
@@ -108,7 +108,7 @@ tools:
   param_clear_content_pattern: "Content pattern (fnmatch, e.g. \"*error*\")"
   param_clear_message_count: "Max messages per channel (0 = unlimited)"
   param_clear_within_minutes: "Only messages within N minutes"
-  param_clear_scope: "Clear scope option"
+  param_clear_scope: "\"channel\" (default) or \"server\""
   param_clear_channel: "Target channel (scope=channel only)"
   param_clear_start: "Start: message ID or time (e.g. \"30m\"/\"2h\"/\"1d\"/ISO)"
   param_clear_end: "End: message ID or time"
@@ -174,7 +174,7 @@ lock:
   param_plan_lock_time: "Lock time (hh-mm)"
   param_plan_unlock_day: "Unlock date (yyyy-mm-dd / mm-dd / dd)"
   param_plan_unlock_time: "Unlock time (hh-mm)"
-  param_plan_cycle: "Cycle option or custom rule"
+  param_plan_cycle: "Cycle (daily / mon,tue,... / 1,2,3 / 1-5)"
   param_plan_cycle_start: "Cycle start (yyyy-mm-dd)"
   param_plan_cycle_end: "Cycle end (yyyy-mm-dd)"
   param_unplan_index: "Schedule index to cancel"

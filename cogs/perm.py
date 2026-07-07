@@ -55,7 +55,7 @@ class PermCog(commands.Cog):
         ]
 
     @staticmethod
-    def _scope_choices() -> list[app_commands.Choice[str | int]]:
+    def _scope_choices() -> list[app_commands.Choice[str]]:
         return [
             app_commands.Choice(name="server", value="server"),
             app_commands.Choice(name="global", value="global"),
@@ -147,6 +147,12 @@ class PermCog(commands.Cog):
         private=ls("perm.param_private"),
         show_server_mods=ls("perm.param_show_server_mods"),
         show_global=ls("perm.param_show_global"),
+    )
+    @app_commands.choices(  # ty:ignore[invalid-argument-type]
+        scope=_scope_choices(),
+        private=_bool_choices(),
+        show_server_mods=_bool_choices(),
+        show_global=_bool_choices(),
     )
     @app_commands.autocomplete(module=module_autocomplete)
     @u.requires(_perm_permission)
