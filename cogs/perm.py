@@ -24,6 +24,14 @@ def _perm_permission(
     return False
 
 
+def _perm_show_permission(
+    module: "PermCog",
+    user: discord.User | discord.Member,
+    guild: discord.Guild | None,
+) -> bool:
+    return u.is_mod(user, module.c, guild)
+
+
 class PermCog(commands.Cog):
     def __init__(self, bot: commands.Bot):
         self.bot = bot
@@ -148,19 +156,19 @@ class PermCog(commands.Cog):
         role=ls("perm.param_role"),
         module=ls("perm.param_module"),
         command=ls("perm.param_command"),
-        scope_choice=ls("perm.param_scope"),
-        private_choice=ls("perm.param_private"),
-        show_server_mods_choice=ls("perm.param_show_server_mods"),
-        show_global_choice=ls("perm.param_show_global"),
+        scope=ls("perm.param_scope"),
+        private=ls("perm.param_private"),
+        show_server_mods=ls("perm.param_show_server_mods"),
+        show_global=ls("perm.param_show_global"),
     )
     @app_commands.choices(
-        scope_choice=_scope_choices(),
-        private_choice=_bool_choices(),
-        show_server_mods_choice=_bool_choices(),
-        show_global_choice=_bool_choices(),
+        scope=_scope_choices(),
+        private=_bool_choices(),
+        show_server_mods=_bool_choices(),
+        show_global=_bool_choices(),
     )
     @app_commands.autocomplete(module=module_autocomplete)
-    @u.requires(_perm_permission)
+    @u.requires(_perm_show_permission)
     async def perm_show(
         self,
         interaction: discord.Interaction,
@@ -168,10 +176,10 @@ class PermCog(commands.Cog):
         role: discord.Role | None = None,
         module: str | None = None,
         command: str | None = None,
-        scope_choice: str = "server",
-        private_choice: int = 0,
-        show_server_mods_choice: int = 1,
-        show_global_choice: int = 0,
+        scope: str = "server",
+        private: int = 0,
+        show_server_mods: int = 1,
+        show_global: int = 0,
     ):
         await self._perm_show(
             interaction,
@@ -179,10 +187,10 @@ class PermCog(commands.Cog):
             role,
             module,
             command,
-            scope_choice,
-            bool(self._bool_choice_flag(private_choice)),
-            bool(self._bool_choice_flag(show_server_mods_choice)),
-            bool(self._bool_choice_flag(show_global_choice)),
+            scope,
+            bool(self._bool_choice_flag(private)),
+            bool(self._bool_choice_flag(show_server_mods)),
+            bool(self._bool_choice_flag(show_global)),
         )
 
     async def _perm_add(
@@ -476,23 +484,8 @@ class PermCog(commands.Cog):
 
         embed = discord.Embed(
             title=self._tr(source, "perm.show_title"),
-            description=self._tr(
-                source, "perm.show_header", scope=scope, count=len(rules)
-            ),
             color=discord.Color.blurple(),
         )
-        if builtin_lines:
-            embed.add_field(
-                name=self._tr(source, "perm.show_builtin_header"),
-                value="\n".join(builtin_lines)[:1024],
-                inline=False,
-            )
-        if global_lines:
-            embed.add_field(
-                name=self._tr(source, "perm.show_global_header"),
-                value="\n".join(global_lines)[:1024],
-                inline=False,
-            )
         config_users = {str(x) for x in self.c.admins.users}
         dynamic_lines: list[str] = []
         for r in rules:
@@ -502,18 +495,41 @@ class PermCog(commands.Cog):
             scope_str = ":globe_with_meridians:" if r.global_scope else ":homes:"
             rule_line = (
                 f"`{r.id}`{lock_str} {scope_str} "
-                f"{self._rule_subject(source, guild, r)} "
+                f"{self._rule_subject(source, guild, r, private)} "
                 f"{self._rule_target(r)}"
             )
             dynamic_lines.append(rule_line)
 
+        if global_lines:
+            embed.add_field(
+                name=self._tr(
+                    source,
+                    "perm.show_global_header",
+                    scope="global",
+                    count=len(global_lines),
+                ),
+                value="\n".join(global_lines)[:1024],
+                inline=False,
+            )
+        if builtin_lines:
+            embed.add_field(
+                name=self._tr(
+                    source,
+                    "perm.show_builtin_header",
+                    scope="server",
+                    count=len(builtin_lines),
+                ),
+                value="\n".join(builtin_lines)[:1024],
+                inline=False,
+            )
         if dynamic_lines:
             embed.add_field(
-                name=self._tr(source, "perm.show_dynamic_header"),
+                name=self._tr(
+                    source, "perm.show_dynamic_header", scope=scope, count=len(rules)
+                ),
                 value="\n".join(dynamic_lines)[:1024],
                 inline=False,
             )
-        embed.set_footer(text=self._tr(source, "perm.show_footer"))
 
         if sum(len(field.value or "") for field in embed.fields) > 5500:
             text_parts = [embed.description or ""]
@@ -539,19 +555,33 @@ class PermCog(commands.Cog):
             return f"command={r.command}"
         return "mod"
 
-    def _rule_subject(self, source, guild: discord.Guild | None, r) -> str:
+    def _rule_subject(
+        self, source, guild: discord.Guild | None, r, private: bool = False
+    ) -> str:
         parts = []
         if r.users:
             parts.append(
                 "users="
                 + ", ".join(
-                    self._format_user_ref(source, guild, uid) for uid in r.users
+                    self._format_user_ref(
+                        guild,
+                        uid,
+                        prefer_mentions=(not private and guild is not None),
+                    )
+                    for uid in r.users
                 )
             )
         if r.roles:
             parts.append(
                 "roles="
-                + ", ".join(self._format_role_ref(guild, rid) for rid in r.roles)
+                + ", ".join(
+                    self._format_role_ref(
+                        guild,
+                        rid,
+                        prefer_mentions=(not private and guild is not None),
+                    )
+                    for rid in r.roles
+                )
             )
         return " ".join(parts) if parts else "subjects=`-`"
 
@@ -571,29 +601,35 @@ class PermCog(commands.Cog):
                 self._tr(
                     source,
                     "perm.show_builtin_admin_role",
-                    role=self._format_role_ref(guild, role.id),
+                    role=self._format_role_ref(guild, role.id, prefer_mentions=False),
                 )
             )
         return lines
 
     def _format_user_ref(
-        self, source, guild: discord.Guild | None, user_ref: str | int
+        self, guild: discord.Guild | None, user_ref: str | int, *, prefer_mentions: bool
     ) -> str:
         raw = str(user_ref)
         if guild and raw.isdigit():
             member = guild.get_member(int(raw))
             if member is not None and not member.bot:
                 name = escape_markdown(member.display_name)
-                return f"{name} (<@{member.id}>)"
+                if prefer_mentions:
+                    return f"{name} (<@{member.id}>)"
+                return f"{name} ({member.id})"
         return f"`{escape_markdown(raw)}`"
 
-    def _format_role_ref(self, guild: discord.Guild | None, role_ref: str | int) -> str:
+    def _format_role_ref(
+        self, guild: discord.Guild | None, role_ref: str | int, *, prefer_mentions: bool
+    ) -> str:
         raw = str(role_ref)
         if guild and raw.isdigit():
             role = guild.get_role(int(raw))
             if role is not None:
                 name = escape_markdown(role.name)
-                return f"{name} (<@&{role.id}>)"
+                if prefer_mentions:
+                    return f"{name} (<@&{role.id}>)"
+                return f"{name} ({role.id})"
         return f"`{escape_markdown(raw)}`"
 
     def _collect_global_visibility_lines(self, source) -> list[str]:
