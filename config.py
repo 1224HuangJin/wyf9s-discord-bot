@@ -445,30 +445,65 @@ class Config:
 
     config: ConfigModel
 
-    def __init__(self):
+    def __init__(
+        self,
+        config_path: str | None = None,
+        token_file: str | None = None,
+        token: str | None = None,
+    ):
+        """
+        初始化配置系统
+
+        :param config_path: 配置文件路径 (默认: 主程序目录下的 config.yaml)
+        :param token_file: token 文件路径 (默认: 主程序目录下的 tk.yaml)
+        :param token: 直接指定 token, 优先级最高 (覆盖配置文件和 token 文件)
+        """
         perf = u.perf_counter()
+
+        # resolve config path: 自定义路径按当前工作目录解析, 默认路径按主程序目录解析
+        if config_path:
+            resolved_config = str(Path(config_path).expanduser())
+        else:
+            resolved_config = u.get_path("config.yaml")
 
         # prepare yaml
         try:
-            with open(u.get_path("config.yaml"), "r", encoding="utf-8") as f:
+            with open(resolved_config, "r", encoding="utf-8") as f:
                 raw_config: dict = safe_load(f)
         except FileNotFoundError:
-            l.error("Config file config.yaml not found!")
+            l.error(f"Config file {resolved_config} not found!")
             exit(1)
         except Exception as e:
-            l.error(f"Error when loading config.yaml: {e}")
+            l.error(f"Error when loading {resolved_config}: {e}")
 
-        # load token from tk.yaml if it exists (for config splitting)
-        tk_path = u.get_path("tk.yaml", create_dirs=False)
+        # load token from token file if it exists (for config splitting)
+        # 自定义 token 文件路径按当前工作目录解析, 默认 (tk.yaml) 按主程序目录解析
+        if token_file:
+            tk_path = str(Path(token_file).expanduser())
+            tk_required = True
+        else:
+            tk_path = u.get_path("tk.yaml", create_dirs=False)
+            tk_required = False
         if Path(tk_path).exists():
             try:
                 with open(tk_path, "r", encoding="utf-8") as f:
                     tk_data: dict = safe_load(f)
                 if isinstance(tk_data, dict) and "token" in tk_data:
                     raw_config["token"] = tk_data["token"]
-                    l.info("[config] Loaded token from tk.yaml")
+                    l.info(f"[config] Loaded token from {tk_path}")
+                else:
+                    l.warning(f"[config] No 'token' key found in {tk_path}")
             except Exception as e:
-                l.warning(f"[config] Failed to load tk.yaml: {e}")
+                l.warning(f"[config] Failed to load {tk_path}: {e}")
+        elif tk_required:
+            l.error(f"Token file {tk_path} not found!")
+            exit(1)
+
+        # 直接指定的 token 优先级最高, 覆盖配置文件和 token 文件
+        # (来自 --token 参数或 W9DCBOT_TOKEN 环境变量)
+        if token:
+            raw_config["token"] = token
+            l.info("[config] Using token from argument/environment variable")
 
         # process config
         self.config = ConfigModel.model_validate(raw_config)

@@ -101,6 +101,16 @@ nano config.yaml # edit
 uv run main.py
 ```
 
+可通过启动参数（或对应环境变量，命令行优先）指定配置 / token 来源：
+
+```bash
+uv run main.py --config /path/to/config.yaml   # 指定配置文件 (env: W9DCBOT_CONFIG)
+uv run main.py --token-file /path/to/tk.yaml   # 指定 token 文件 (env: W9DCBOT_TOKEN_FILE)
+uv run main.py --token "YOUR_BOT_TOKEN"         # 直接指定 token   (env: W9DCBOT_TOKEN)
+```
+
+Token 优先级：`--token` / `W9DCBOT_TOKEN` > token 文件（`tk.yaml`）> `config.yaml`。
+
 ## 许可
 
 MIT

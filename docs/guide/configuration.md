@@ -6,10 +6,20 @@
 
 | 字段 | 类型 | 默认值 | 说明 |
 | --- | --- | --- | --- |
-| `token` | `str` | **必填** | 机器人 Token |
+| `token` | `str` | **必填** | 机器人 Token（可被 token 文件或 `--token` 参数覆盖，见下文） |
 | `proxy` | `str \| null` | `null` | 代理地址（如 `http://localhost:11451`） |
 | `command_prefix` | `str` | `\` | 前缀命令的前缀（示例配置为 `//`） |
 | `secret_message_delay` | `int` | `600` | 私密消息删除延迟（秒），用于 `uuid` 等 |
+
+## 配置与 token 的来源
+
+启动时可通过命令行参数或环境变量指定配置文件与 token 的来源（命令行参数优先级高于环境变量）：
+
+- `--config` / `-c`（`W9DCBOT_CONFIG`）— 指定配置文件路径（默认 `config.yaml`）
+- `--token-file`（`W9DCBOT_TOKEN_FILE`）— 指定 token 文件路径（默认 `tk.yaml`，一个含 `token: xxx` 的 YAML）
+- `--token`（`W9DCBOT_TOKEN`）— 直接指定 Bot Token
+
+Token 的优先级为：**`--token` / `W9DCBOT_TOKEN` > token 文件（`tk.yaml`）> `config.yaml` 中的 `token`**。因此可将敏感的 token 拆分到单独的 `tk.yaml`（已被 `.gitignore` 忽略），或在部署时通过参数 / 环境变量注入。详见[启动参数](/guide/getting-started#启动参数)。
 
 ## 日志 `log`
 

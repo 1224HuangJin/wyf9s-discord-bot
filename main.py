@@ -60,8 +60,66 @@ from i18n import I18nTranslator  # noqa: E402
 
 # region init
 
+
+def parse_args():
+    """
+    解析命令行启动参数
+
+    每个参数也可通过对应的环境变量指定; 命令行参数优先级高于环境变量:
+    - --config      -> W9DCBOT_CONFIG
+    - --token-file  -> W9DCBOT_TOKEN_FILE
+    - --token       -> W9DCBOT_TOKEN
+    """
+    import argparse
+    import os
+
+    parser = argparse.ArgumentParser(
+        description="wyf9's Discord Bot",
+    )
+    parser.add_argument(
+        "--config",
+        "-c",
+        dest="config",
+        default=os.environ.get("W9DCBOT_CONFIG"),
+        metavar="PATH",
+        help=(
+            "Path to the config file (default: config.yaml in the program directory). "
+            "Env: W9DCBOT_CONFIG"
+        ),
+    )
+    parser.add_argument(
+        "--token-file",
+        dest="token_file",
+        default=os.environ.get("W9DCBOT_TOKEN_FILE"),
+        metavar="PATH",
+        help=(
+            "Path to the token file (default: tk.yaml in the program directory). "
+            "Env: W9DCBOT_TOKEN_FILE"
+        ),
+    )
+    parser.add_argument(
+        "--token",
+        dest="token",
+        default=os.environ.get("W9DCBOT_TOKEN"),
+        metavar="TOKEN",
+        help=(
+            "Bot Token specified directly (highest priority, overrides config file "
+            "and token file). Env: W9DCBOT_TOKEN"
+        ),
+    )
+    # 忽略未知参数, 避免与其他工具 (如 debugger) 传入的参数冲突
+    args, _ = parser.parse_known_args()
+    return args
+
+
+_args = parse_args()
+
 # init config
-c = Config().config
+c = Config(
+    config_path=_args.config,
+    token_file=_args.token_file,
+    token=_args.token,
+).config
 
 # reconfigure loggers now that we have config
 l.remove()

@@ -29,6 +29,39 @@ uv run main.py
 sh update.sh
 ```
 
+## 启动参数
+
+`main.py` 支持以下命令行参数，用于指定配置 / token 的来源。每个参数也可通过对应的**环境变量**指定，命令行参数优先级高于环境变量：
+
+| 参数 | 环境变量 | 说明 |
+| --- | --- | --- |
+| `--config`, `-c <PATH>` | `W9DCBOT_CONFIG` | 指定配置文件路径（默认：主程序目录下的 `config.yaml`） |
+| `--token-file <PATH>` | `W9DCBOT_TOKEN_FILE` | 指定 token 文件路径（默认：主程序目录下的 `tk.yaml`，一个含 `token: xxx` 的 YAML） |
+| `--token <TOKEN>` | `W9DCBOT_TOKEN` | 直接指定 Bot Token |
+
+```bash
+# 使用自定义配置文件
+uv run main.py --config /path/to/my-config.yaml
+
+# 从单独的 token 文件读取 token
+uv run main.py --token-file /path/to/tk.yaml
+
+# 直接通过参数传入 token
+uv run main.py --token "YOUR_BOT_TOKEN"
+
+# 通过环境变量传入 (适合容器 / CI)
+export W9DCBOT_TOKEN="YOUR_BOT_TOKEN"
+uv run main.py
+```
+
+::: tip Token 优先级
+`--token` 参数 / `W9DCBOT_TOKEN` 环境变量 > token 文件（`--token-file` / `tk.yaml`）> 配置文件（`config.yaml`）中的 `token` 字段。
+
+其中对于同一项配置，命令行参数优先级高于环境变量。这样便于将敏感的 token 从主配置文件中分离出来（例如 `tk.yaml` 已被 `.gitignore` 忽略），或在容器 / CI 环境中通过参数 / 环境变量注入。
+
+自定义的 `--config` / `--token-file` 路径按当前工作目录解析；若指定的文件不存在，程序会报错退出。
+:::
+
 ## 机器人权限与 Intents
 
 ### Gateway Intents
