@@ -3,6 +3,9 @@
 !*.example.yaml
 !lang/**/*.yaml
 
+# Runtime data directory (--data-dir, default ./data/)
+/data/
+
 # ========== Generated ==========
 
 # Byte-compiled / optimized / DLL files

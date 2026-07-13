@@ -30,20 +30,22 @@ class PermRule(BaseModel):
 
 class PermStore:
     def __init__(self, path: str = "perm.yaml"):
-        self._path = u.get_path(path)
+        self._name = path
+        self._path = u.get_data_path(path)
         self.rules: list[PermRule] = []
         self._next_id = 1
         self._load()
 
     def _load(self):
-        if Path(self._path).exists():
+        read_path = u.get_data_path(self._name, for_read=True)
+        if Path(read_path).exists():
             try:
-                with open(self._path, "r", encoding="utf-8") as f:
+                with open(read_path, "r", encoding="utf-8") as f:
                     data = safe_load(f) or {}
                 self.rules = [PermRule.model_validate(r) for r in data.get("rules", [])]
                 if self.rules:
                     self._next_id = max(r.id for r in self.rules) + 1
-                l.debug(f"[perm] Loaded {len(self.rules)} rules from {self._path}")
+                l.debug(f"[perm] Loaded {len(self.rules)} rules from {read_path}")
             except Exception as e:
                 l.warning(f"[perm] Failed to load perm rules: {e}")
                 self.rules = []

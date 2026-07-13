@@ -7,7 +7,7 @@ import utils as u
 
 LangCode = str
 
-_LANG_FILE = u.get_path("lang_settings.yaml")
+_LANG_FILE_NAME = "lang_settings.yaml"
 
 
 class LangStore:
@@ -17,9 +17,10 @@ class LangStore:
         self._load()
 
     def _load(self):
-        if Path(_LANG_FILE).exists():
+        read_path = u.get_data_path(_LANG_FILE_NAME, for_read=True)
+        if Path(read_path).exists():
             try:
-                with open(_LANG_FILE, "r", encoding="utf-8") as f:
+                with open(read_path, "r", encoding="utf-8") as f:
                     data = safe_load(f) or {}
                 raw_users = data.get("users", {})
                 self._user_lang = {str(k): v for k, v in raw_users.items()}
@@ -34,15 +35,16 @@ class LangStore:
                 self._guild_lang = {}
 
     def _save(self):
+        write_path = u.get_data_path(_LANG_FILE_NAME)
         try:
             data = {
                 "users": dict(self._user_lang),
                 "guilds": {str(k): v for k, v in self._guild_lang.items()},
             }
-            with open(_LANG_FILE, "w", encoding="utf-8") as f:
+            with open(write_path, "w", encoding="utf-8") as f:
                 safe_dump(data, f, allow_unicode=True, default_flow_style=False)
         except Exception as e:
-            raise RuntimeError(f"Cannot write to {_LANG_FILE}: {e}")
+            raise RuntimeError(f"Cannot write to {write_path}: {e}")
 
     def set_user(self, user_id: int | str, lang: LangCode):
         self._user_lang[str(user_id)] = lang

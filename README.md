@@ -107,9 +107,12 @@ uv run main.py
 uv run main.py --config /path/to/config.yaml   # 指定配置文件 (env: W9DCBOT_CONFIG)
 uv run main.py --token-file /path/to/tk.yaml   # 指定 token 文件 (env: W9DCBOT_TOKEN_FILE)
 uv run main.py --token "YOUR_BOT_TOKEN"         # 直接指定 token   (env: W9DCBOT_TOKEN)
+uv run main.py --data-dir /path/to/data         # 数据文件目录     (env: W9DCBOT_DATA_DIR)
 ```
 
 Token 优先级：`--token` / `W9DCBOT_TOKEN` > token 文件（`tk.yaml`）> `config.yaml`。
+
+数据文件（`perm.yaml` / `lang_settings.yaml` / `schedules.yaml`）及日志文件默认存放于 `./data/`，可用 `--data-dir` 指定；读取时若不存在会回退到程序目录。多实例部署请为各实例指定独立的数据目录以避免数据互相干扰。
 
 ## 许可
 

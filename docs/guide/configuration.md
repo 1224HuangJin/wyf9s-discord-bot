@@ -18,15 +18,20 @@
 - `--config` / `-c`（`W9DCBOT_CONFIG`）— 指定配置文件路径（默认 `config.yaml`）
 - `--token-file`（`W9DCBOT_TOKEN_FILE`）— 指定 token 文件路径（默认 `tk.yaml`，一个含 `token: xxx` 的 YAML）
 - `--token`（`W9DCBOT_TOKEN`）— 直接指定 Bot Token
+- `--data-dir`（`W9DCBOT_DATA_DIR`）— 运行时数据文件目录（默认 `./data/`）
 
 Token 的优先级为：**`--token` / `W9DCBOT_TOKEN` > token 文件（`tk.yaml`）> `config.yaml` 中的 `token`**。因此可将敏感的 token 拆分到单独的 `tk.yaml`（已被 `.gitignore` 忽略），或在部署时通过参数 / 环境变量注入。详见[启动参数](/guide/getting-started#启动参数)。
+
+## 数据目录
+
+运行时可变的数据文件（`perm.yaml`、`lang_settings.yaml`、`schedules.yaml`）以及日志文件（`log.file`）默认存放在 `./data/`（可用 `--data-dir` / `W9DCBOT_DATA_DIR` 修改）。写入始终指向数据目录，读取时若数据目录中不存在则回退到主程序目录（兼容旧数据位置）。多实例部署时应为各实例指定独立的数据目录以避免数据互相干扰，详见[数据目录](/guide/getting-started#数据目录)。
 
 ## 日志 `log`
 
 | 字段 | 类型 | 默认值 | 说明 |
 | --- | --- | --- | --- |
 | `level` | 枚举 | `INFO` | 控制台日志级别：`DEBUG` / `INFO` / `WARNING` / `ERROR` / `CRITICAL` |
-| `file` | `str \| null` | `logs/{time:YYYY-MM-DD}.log` | 日志文件路径（Loguru 格式，`null` 禁用） |
+| `file` | `str \| null` | `logs/{time:YYYY-MM-DD}.log` | 日志文件路径（Loguru 格式，`null` 禁用；相对[数据目录](#数据目录)解析） |
 | `file_level` | 枚举 \| `null` | `INFO` | 文件日志级别（`null` 则跟随 `level`） |
 | `rotation` | `str \| int` | `1 days` | Loguru 轮转周期 |
 | `retention` | `str \| int` | `3 days` | Loguru 保留时间 |

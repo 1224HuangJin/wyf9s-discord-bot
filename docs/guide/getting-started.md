@@ -38,6 +38,7 @@ sh update.sh
 | `--config`, `-c <PATH>` | `W9DCBOT_CONFIG` | 指定配置文件路径（默认：主程序目录下的 `config.yaml`） |
 | `--token-file <PATH>` | `W9DCBOT_TOKEN_FILE` | 指定 token 文件路径（默认：主程序目录下的 `tk.yaml`，一个含 `token: xxx` 的 YAML） |
 | `--token <TOKEN>` | `W9DCBOT_TOKEN` | 直接指定 Bot Token |
+| `--data-dir <PATH>` | `W9DCBOT_DATA_DIR` | 运行时数据文件目录（默认：`./data/`），见[数据目录](#数据目录) |
 
 ```bash
 # 使用自定义配置文件
@@ -48,6 +49,9 @@ uv run main.py --token-file /path/to/tk.yaml
 
 # 直接通过参数传入 token
 uv run main.py --token "YOUR_BOT_TOKEN"
+
+# 指定独立的数据目录 (多实例隔离)
+uv run main.py --data-dir /path/to/instance-a/data
 
 # 通过环境变量传入 (适合容器 / CI)
 export W9DCBOT_TOKEN="YOUR_BOT_TOKEN"
@@ -60,6 +64,18 @@ uv run main.py
 其中对于同一项配置，命令行参数优先级高于环境变量。这样便于将敏感的 token 从主配置文件中分离出来（例如 `tk.yaml` 已被 `.gitignore` 忽略），或在容器 / CI 环境中通过参数 / 环境变量注入。
 
 自定义的 `--config` / `--token-file` 路径按当前工作目录解析；若指定的文件不存在，程序会报错退出。
+:::
+
+### 数据目录
+
+运行时可变的数据文件（`perm.yaml`、`lang_settings.yaml`、`schedules.yaml`）以及**日志文件**（`log.file`）默认存放在 `--data-dir` 指定的目录（默认 `./data/`，按当前工作目录解析）。
+
+- **写入**：始终写入数据目录，因此为不同实例指定不同的 `--data-dir`（或从不同工作目录启动）即可实现数据隔离，避免多实例之间数据互相覆盖。
+- **读取回退**：若数据目录中不存在某个数据文件，则回退读取主程序目录下的同名文件（兼容旧版本的数据位置）；之后的写入仍会保存到数据目录，从而自动完成迁移。
+- **日志**：配置中的 `log.file` 路径相对于数据目录解析（如默认 `logs/{time}.log` 会写入 `<data-dir>/logs/`），因此各实例的日志也会随数据目录隔离。
+
+::: tip 多实例部署
+若在同一份代码目录下运行多个机器人实例，请为每个实例指定独立的 `--data-dir`（或 `W9DCBOT_DATA_DIR`），否则它们会共享 `perm.yaml` 等数据文件而互相干扰。
 :::
 
 ## 机器人权限与 Intents

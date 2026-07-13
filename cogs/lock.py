@@ -46,14 +46,16 @@ class ScheduledLock(BaseModel):
 
 class ScheduleStore:
     def __init__(self, path: str = "schedules.yaml"):
-        self._path = u.get_path(path)
+        self._name = path
+        self._path = u.get_data_path(path)
         self.schedules: list[ScheduledLock] = []
         self._load()
 
     def _load(self):
-        if Path(self._path).exists():
+        read_path = u.get_data_path(self._name, for_read=True)
+        if Path(read_path).exists():
             try:
-                with open(self._path, "r", encoding="utf-8") as f:
+                with open(read_path, "r", encoding="utf-8") as f:
                     data = safe_load(f) or []
                 self.schedules = [ScheduledLock.model_validate(item) for item in data]
             except Exception as e:

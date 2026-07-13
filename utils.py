@@ -43,6 +43,59 @@ def get_path(path: str, create_dirs: bool = True, is_dir: bool = False) -> str:
     return full_path
 
 
+# 数据目录: 用于存放运行时可变数据文件 (perm.yaml / lang_settings.yaml / schedules.yaml 等)
+# 通过 set_data_dir 配置 (--data-dir / W9DCBOT_DATA_DIR), 默认为当前工作目录下的 ./data/
+_DATA_DIR: str = str(Path("data"))
+
+
+def set_data_dir(path: str | None):
+    """
+    设置数据目录
+
+    :param path: 数据目录路径 (None 则使用默认 ./data/); 相对路径按当前工作目录解析
+    """
+    global _DATA_DIR
+    _DATA_DIR = str(Path(path).expanduser()) if path else str(Path("data"))
+    l.debug(f"[data] Data directory set to: {_DATA_DIR}")
+
+
+def get_data_dir() -> str:
+    """获取当前配置的数据目录 (绝对/相对均可, 由 set_data_dir 决定)"""
+    return _DATA_DIR
+
+
+def get_data_path(path: str, create_dirs: bool = True, for_read: bool = False) -> str:
+    """
+    数据文件相对路径 -> 绝对路径 (基于数据目录)
+
+    写入 (for_read=False): 始终指向数据目录, 保证多实例之间数据隔离。
+    读取 (for_read=True): 若数据目录中不存在该文件, 则回退到主程序目录下的同名文件
+                          (兼容旧版本的数据位置); 都不存在时仍返回数据目录路径。
+
+    :param path: 相对路径 (如 perm.yaml)
+    :param create_dirs: 写入模式下是否自动创建数据目录
+    :param for_read: 是否为读取模式 (启用回退)
+    :return: 绝对路径
+    """
+    data_file = Path(_DATA_DIR).joinpath(path)
+
+    if for_read:
+        if data_file.exists():
+            return str(data_file)
+        # 回退到主程序目录 (旧数据位置)
+        legacy = Path(get_path(path, create_dirs=False))
+        if legacy.exists():
+            l.debug(f"[data] Falling back to legacy path for '{path}': {legacy}")
+            return str(legacy)
+        return str(data_file)
+
+    # 写入模式: 始终使用数据目录
+    if create_dirs:
+        parent = data_file.parent
+        os.makedirs(parent, exist_ok=True)
+    return str(data_file)
+
+
 def relative_path(path: str) -> str:
     """
     绝对路径 -> 相对路径

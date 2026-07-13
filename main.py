@@ -69,6 +69,7 @@ def parse_args():
     - --config      -> W9DCBOT_CONFIG
     - --token-file  -> W9DCBOT_TOKEN_FILE
     - --token       -> W9DCBOT_TOKEN
+    - --data-dir    -> W9DCBOT_DATA_DIR
     """
     import argparse
     import os
@@ -107,12 +108,26 @@ def parse_args():
             "and token file). Env: W9DCBOT_TOKEN"
         ),
     )
+    parser.add_argument(
+        "--data-dir",
+        dest="data_dir",
+        default=os.environ.get("W9DCBOT_DATA_DIR"),
+        metavar="PATH",
+        help=(
+            "Directory for runtime data files (perm.yaml, lang_settings.yaml, "
+            "schedules.yaml) and logs. Reads fall back to the program directory if "
+            "not found here. Default: ./data/. Env: W9DCBOT_DATA_DIR"
+        ),
+    )
     # 忽略未知参数, 避免与其他工具 (如 debugger) 传入的参数冲突
     args, _ = parser.parse_known_args()
     return args
 
 
 _args = parse_args()
+
+# 设置数据目录 (须在创建各数据 store 之前)
+u.set_data_dir(_args.data_dir)
 
 # init config
 c = Config(
@@ -133,7 +148,8 @@ l.add(
 )
 
 if c.log.file:
-    log_file_path = u.get_path(c.log.file)
+    # 日志文件位置相对于数据目录 (随 --data-dir 隔离)
+    log_file_path = u.get_data_path(c.log.file)
     l.add(
         log_file_path,
         level=c.log.file_level or c.log.level,
