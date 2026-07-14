@@ -13,7 +13,7 @@
 2. 命中该频道的 `spam-catcher` 规则后开始判定。
 3. 若作者拥有 `ignored-roles` 中任一角色 → **跳过**。
 4. 判断作者类别：
-   - **陌生账号（spammer）**：没有任何非默认身份组，**或** 其全部身份组都属于 `stranger-roles`。
+   - **陌生账号（spammer）**：没有任何身份组，**或** 其全部身份组都属于 `stranger-roles`。
    - **正常账号（hacked，疑似被盗）**：其余情况。
 5. 按类别执行对应动作（`spammer` / `hacked`）。
 6. 可选：清理该用户近期消息（`clear-message`）、在频道公开通知（`public-log`）。

@@ -128,6 +128,30 @@ All user-facing text must be localized. Never hardcode display strings.
 - `docs/` — VitePress site (guides + per-module pages); keep command tables and the i18n guide in sync
 - `AGENTS.md` — developer/agent instructions only (keep non-overlapping with README)
 
+## Changelog / Announcement
+
+When asked to write a changelog for the bot announcement channel:
+
+1. Provide **both** Chinese and English versions (no need to explicitly label which is which).
+2. Each language starts with a dated Changelog heading, e.g.:
+
+   ```md
+   # 2026-07-13 更新日志
+
+   - ...
+
+   # 2026-07-13 Changelog
+
+   - ...
+   ```
+
+3. Append a `[Docs](url)` link after every change entry, pointing to the most
+   precise documentation location possible (may include `#section-name`).
+   Docs site base URL is `https://dc-bot.wyf9.top` (VitePress `cleanUrls`, e.g.
+   `https://dc-bot.wyf9.top/guide/getting-started#启动参数`).
+4. Breaking changes go in their own emphasized section: `## :rotating_light: 破坏性更改`
+   (Chinese) / `## :rotating_light: Breaking Changes` (English).
+
 ## Logging & Audit
 
 - `AuditLogger.log(...)` sends an embed to a single audit channel set

@@ -80,14 +80,29 @@
 | `message_count` | 每个频道最多检查多少条消息（不填 / 0 = 不限制但较慢） |
 | `within_minutes` | 仅清除最近几分钟内的消息（不填 / 0 = 不限制） |
 | `scope` | 范围：`channel`（单频道，默认）或 `server`（整个服务器） |
-| `channel` | 指定频道（仅 `scope=channel` 时生效，默认当前频道） |
-| `start` | 起始范围：消息 ID 或时间（`30m` / `2h` / `1d` / ISO 时间） |
-| `end` | 结束范围：消息 ID 或时间 |
+| `channel` | 指定频道（仅 `scope=channel` 时生效，默认当前频道；**可指定论坛频道**） |
+| `start` | 起始范围：消息 ID / **帖子 ID** 或时间（`30m` / `2h` / `1d` / ISO 时间） |
+| `end` | 结束范围：消息 ID / **帖子 ID** 或时间 |
+| `delete_threads` | 是否直接删除由目标用户所作的**整个帖子**（默认 `false`） |
+| `forum_scan_count` | 每个论坛频道扫描多少帖子（按最近活跃排序；不填则继承消息数 / 时间限制） |
+
+#### 论坛 / 帖子清理
+
+> 帖子（Thread）是一种特殊的频道类型；论坛频道（Forum）下的每个帖子都是独立的子频道。
+
+- **清理帖子内消息（行为 A）**：当目标为用户、且 `channel` 指向论坛频道（或 `scope=server` 遍历到论坛）时，会自动扫描论坛内的帖子并删除其中匹配的消息。
+  - 用 `forum_scan_count` 控制每个论坛扫描多少帖子（最近活跃排序）；不填时：指定时间区间则只扫描区间内有活跃的帖子，指定消息数则在每个受扫描帖子中拉取相应数量的消息。
+- **删除整个帖子（行为 B）**：`delete_threads=true` 时，由目标用户所作（匹配过滤条件）的整个帖子会被直接删除。
+  - 删除帖子会**连带删除帖子内的所有消息**（即使并非目标用户所发），因此必须显式将 `delete_threads` 设为 `true` 才会执行。
+- **用帖子 ID 指定范围**：若 `start` / `end` 匹配到的是帖子（先尝试匹配消息，匹配不到再匹配帖子），则按帖子创建时间作为区间边界删除该论坛内符合条件的帖子（需 `delete_threads=true`）。
+  - 若 `start` / `end` 指向的资源类型不同（一个是消息、一个是帖子）或不在同一论坛，则报错。
+  - `start` / `end` 为消息 ID 时不参与帖子删除（消息无法匹配帖子）。
 
 #### 约束
 
 - `start`/`end` 不能与 `within_minutes`/`message_count` **同时使用**。
 - 若不使用时间范围，`message_count` 与 `within_minutes` 至少设置一个。
+  - **特例**：`delete_threads=true` 且指定了 `forum_scan_count` 时，`forum_scan_count` 本身即作为限制，无需再设置 `message_count`/`within_minutes`。此时**只扫描论坛帖子、不扫描普通频道消息**：显式指定论坛频道则只处理该论坛，否则处理服务器内所有论坛。
 - 若无任何范围限制，则必须至少提供一种匹配过滤条件。
 - **超过 14 天的消息无法批量删除**（Discord 限制）。当这类消息数量不超过 `tools.clear-single-delete-max`（默认 `20`，`0` 禁用）时，会自动回退为逐条删除；超出阈值则单独计为「因超过 14 天不可删」。
 - 机器人自己发出的、带 `[clear-message]` 标记的结果消息会被自动跳过，避免误删。
@@ -100,10 +115,14 @@
 //clear-message --user=@某人 --within=30m
 //clear-message --nick="*bot*" --scope=server --count=500
 //clear-message --content="*spam*" --start=1d --end=2h
+//clear-message --user=@某人 --channel=<论坛频道> --within=7d --delete-threads=true --forum-scan-count=100
+//clear-message --user=@某人 --delete-threads=true --forum-scan-count=100   # 扫描服务器内所有论坛
+//clear-message --user=@某人 --start=<帖子ID> --end=<帖子ID> --delete-threads=true
 ```
 
-- 支持别名：`--user-ids` / `--webhook-ids` / `--nick`(=`--nick-pattern`) / `--content`(=`--content-pattern`) / `--count` / `--within` / `--scope` / `--channel` / `--start` / `--end`
+- 支持别名：`--user-ids` / `--webhook-ids` / `--nick`(=`--nick-pattern`) / `--content`(=`--content-pattern`) / `--count` / `--within` / `--scope` / `--channel` / `--start` / `--end` / `--delete-threads` / `--forum-scan-count`(=`--forum-scan`)
 - `--within` 支持 `30m` / `2h` / `1d` 或纯分钟数。
+- `--delete-threads=true` 才会删除整个帖子（需显式开启）。
 
 #### 结果消息 OK 按钮
 

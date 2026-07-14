@@ -53,6 +53,21 @@ def _parse_time_or_id(
     )
 
 
+def _thread_created(thread: discord.Thread) -> datetime:
+    """Thread creation time (derived from the snowflake ID, always available)."""
+    return discord.utils.snowflake_time(thread.id)
+
+
+def _thread_last_activity(thread: discord.Thread) -> datetime:
+    """Best-effort 'last activity' timestamp for ordering / time-window filtering."""
+    if thread.last_message_id:
+        return discord.utils.snowflake_time(thread.last_message_id)
+    ts = getattr(thread, "archive_timestamp", None)
+    if ts is not None:
+        return ts
+    return _thread_created(thread)
+
+
 class ClearMessageService:
     def __init__(
         self,
@@ -83,17 +98,23 @@ class ClearMessageService:
         channel_target: discord.abc.GuildChannel | None = None,
         start: str | None = None,
         end: str | None = None,
+        delete_threads: bool = False,
+        forum_scan_count: int | None = None,
         write_audit: bool = True,
         lang: str = "zh",
     ) -> str:
         message_limit = message_count if message_count is not None else 0
         minutes_limit = within_minutes if within_minutes is not None else 0
+        forum_scan_limit = forum_scan_count if forum_scan_count is not None else None
 
         if message_limit < 0:
             return _t("clearmsg.count_negative", lang)
 
         if minutes_limit < 0:
             return _t("clearmsg.minutes_negative", lang)
+
+        if forum_scan_limit is not None and forum_scan_limit < 0:
+            return _t("clearmsg.forum_scan_negative", lang)
 
         has_time_range = bool(start or end)
         has_legacy_restriction = minutes_limit > 0 or message_limit > 0
@@ -105,10 +126,25 @@ class ClearMessageService:
             or (content_pattern and content_pattern.strip())
         )
 
+        # 特例: delete_threads + forum_scan_count 且无其它区间/数量限制时,
+        # forum_scan_count 本身即作为限制 (仅扫描论坛帖子, 不扫描普通频道消息,
+        # 以免无限制地拉取频道历史)。
+        forum_only_mode = (
+            delete_threads
+            and forum_scan_limit is not None
+            and not has_time_range
+            and not has_legacy_restriction
+        )
+
         if has_time_range and has_legacy_restriction:
             return _t("clearmsg.range_conflict", lang)
 
-        if not has_time_range and message_limit == 0 and minutes_limit == 0:
+        if (
+            not has_time_range
+            and message_limit == 0
+            and minutes_limit == 0
+            and not forum_only_mode
+        ):
             return _t("clearmsg.need_limit", lang)
 
         if not has_time_range and not has_legacy_restriction and not has_match_filter:
@@ -165,13 +201,18 @@ class ClearMessageService:
             return _t("clearmsg.invalid_scope", lang, scope=scope)
 
         target_channels: list[
-            discord.TextChannel | discord.VoiceChannel | discord.StageChannel
+            discord.TextChannel
+            | discord.VoiceChannel
+            | discord.StageChannel
+            | discord.Thread
         ] = []
+        target_forums: list[discord.ForumChannel] = []
         if scope == "channel":
-            if channel_target:
-                target_channels.append(channel_target)  # type: ignore[arg-type]  # ty:ignore[invalid-argument-type]
+            primary = channel_target or channel
+            if isinstance(primary, discord.ForumChannel):
+                target_forums.append(primary)
             else:
-                target_channels.append(channel)  # type: ignore[arg-type]  # ty:ignore[invalid-argument-type]
+                target_channels.append(primary)  # type: ignore[arg-type]  # ty:ignore[invalid-argument-type]
         else:
             if not guild:
                 return _t("clearmsg.server_only", lang)
@@ -183,6 +224,22 @@ class ClearMessageService:
                     (discord.TextChannel, discord.VoiceChannel, discord.StageChannel),
                 )
             ]
+            target_forums = [
+                ch for ch in guild.channels if isinstance(ch, discord.ForumChannel)
+            ]
+
+        # forum_only_mode: 仅扫描论坛帖子, 不扫描普通频道消息。
+        # 显式指定论坛频道 -> 仅该论坛; 否则 -> 服务器内所有论坛。
+        if forum_only_mode:
+            target_channels = []
+            if isinstance(channel_target, discord.ForumChannel):
+                target_forums = [channel_target]
+            else:
+                if not guild:
+                    return _t("clearmsg.server_only", lang)
+                target_forums = [
+                    ch for ch in guild.channels if isinstance(ch, discord.ForumChannel)
+                ]
 
         start_obj: discord.Object | None = None
         start_dt: datetime | None = None
@@ -200,28 +257,117 @@ class ClearMessageService:
             if start_dt and end_dt and start_dt > end_dt:
                 return _t("clearmsg.start_gt_end_time", lang)
 
-        # 如果 start 和 end 都是消息 ID，验证顺序并获取消息
+        # start / end 若为 ID, 先尝试匹配消息, 匹配不到再匹配帖子 (Thread)。
+        # 两者资源类型必须一致, 且帖子必须位于同一论坛; 命中帖子时进入
+        # "帖子范围模式" (thread_range_mode), 按帖子创建时间作为区间边界。
         start_msg: discord.Message | None = None
         end_msg: discord.Message | None = None
-        if start_obj and end_obj:
-            # 需要确定频道来获取消息
-            # 当 scope 为 "channel" 时，使用 target_channels[0]
-            # 当 scope 为 "server" 时，我们无法确定频道，因此跳过验证
-            if scope == "channel" and target_channels:
-                channel_for_fetch = target_channels[0]
+        thread_range_mode = False
+        thread_created_start: datetime | None = None
+        thread_created_end: datetime | None = None
+
+        message_fetch_channel = (
+            target_channels[0] if scope == "channel" and target_channels else None
+        )
+
+        async def resolve_ref(
+            obj_id: int, label: str
+        ) -> tuple[str | None, discord.Message | discord.Thread | None, str | None]:
+            # 优先匹配消息
+            if message_fetch_channel is not None:
                 try:
-                    start_msg = await channel_for_fetch.fetch_message(start_obj.id)
+                    msg = await message_fetch_channel.fetch_message(obj_id)
+                    return "message", msg, None
                 except discord.NotFound:
-                    return _t("clearmsg.start_msg_not_found", lang, id=start_obj.id)
+                    pass
                 except discord.HTTPException as e:
-                    return _t("clearmsg.start_msg_error", lang, error=e)
-                try:
-                    end_msg = await channel_for_fetch.fetch_message(end_obj.id)
-                except discord.NotFound:
-                    return _t("clearmsg.end_msg_not_found", lang, id=end_obj.id)
-                except discord.HTTPException as e:
-                    return _t("clearmsg.end_msg_error", lang, error=e)
-                if start_msg.created_at > end_msg.created_at:
+                    return None, None, _t("clearmsg.ref_fetch_error", lang, error=e)
+            # 再匹配帖子 (Thread)
+            thread: discord.Thread | None = None
+            if guild is not None:
+                thread = guild.get_thread(obj_id)
+                if thread is None:
+                    try:
+                        fetched = await guild.fetch_channel(obj_id)
+                    except (
+                        discord.NotFound,
+                        discord.Forbidden,
+                        discord.HTTPException,
+                    ):
+                        fetched = None
+                    if isinstance(fetched, discord.Thread):
+                        thread = fetched
+            if thread is not None:
+                return "thread", thread, None
+            return (
+                None,
+                None,
+                _t("clearmsg.ref_not_found", lang, label=label, id=obj_id),
+            )
+
+        if start_obj or end_obj:
+            start_kind = end_kind = None
+            start_ref: discord.Message | discord.Thread | None = None
+            end_ref: discord.Message | discord.Thread | None = None
+            if start_obj:
+                start_kind, start_ref, err = await resolve_ref(start_obj.id, "start")
+                if err:
+                    return _t("clearmsg.error_wrap", lang, msg=err)
+            if end_obj:
+                end_kind, end_ref, err = await resolve_ref(end_obj.id, "end")
+                if err:
+                    return _t("clearmsg.error_wrap", lang, msg=err)
+
+            if start_obj and end_obj and start_kind != end_kind:
+                return _t("clearmsg.ref_type_mismatch", lang)
+
+            ref_kind = start_kind or end_kind
+            if ref_kind == "thread":
+                if not delete_threads:
+                    return _t("clearmsg.thread_range_needs_flag", lang)
+                start_thread = (
+                    start_ref if isinstance(start_ref, discord.Thread) else None
+                )
+                end_thread = end_ref if isinstance(end_ref, discord.Thread) else None
+                forum = None
+                for th in (start_thread, end_thread):
+                    if th is None:
+                        continue
+                    parent = th.parent
+                    if not isinstance(parent, discord.ForumChannel):
+                        return _t("clearmsg.thread_not_forum", lang, id=th.id)
+                    if forum is None:
+                        forum = parent
+                    elif forum.id != parent.id:
+                        return _t("clearmsg.threads_diff_forum", lang)
+                if forum is None:
+                    return _t("clearmsg.thread_not_forum", lang, id=0)
+                if (
+                    start_thread is not None
+                    and end_thread is not None
+                    and _thread_created(start_thread) > _thread_created(end_thread)
+                ):
+                    return _t("clearmsg.start_gt_end_thread", lang)
+                thread_range_mode = True
+                thread_created_start = (
+                    _thread_created(start_thread) if start_thread is not None else None
+                )
+                thread_created_end = (
+                    _thread_created(end_thread) if end_thread is not None else None
+                )
+                # 帖子范围模式: 目标锁定为该论坛
+                target_channels = []
+                target_forums = [forum]
+            elif ref_kind == "message":
+                start_msg = (
+                    start_ref if isinstance(start_ref, discord.Message) else None
+                )
+                end_msg = end_ref if isinstance(end_ref, discord.Message) else None
+                if (
+                    start_msg is not None
+                    and end_msg is not None
+                    and start_msg.created_at > end_msg.created_at
+                ):
                     return _t("clearmsg.start_gt_end_msg", lang)
 
         cutoff_time = None
@@ -317,7 +463,126 @@ class ClearMessageService:
                 checked_messages_by_channel.setdefault(channel_id, []).append(end_msg)
                 checked_count += 1
 
-        if checked_count == 0:
+        # ===== 论坛 (ForumChannel) 处理 =====
+        # 行为 A: 扫描论坛内帖子, 清除其中匹配的消息。
+        # 行为 B: delete_threads=True 时, 直接删除由目标用户所作 (匹配) 的整个帖子
+        #         (会顺带删除帖子内所有消息, 因此需显式开启)。
+        threads_to_delete: list[discord.Thread] = []
+        scanned_thread_channels: dict[int, discord.Thread] = {}
+        threads_scanned_count = 0
+
+        # 帖子活跃时间窗口 (行为 A/B 的帖子筛选)
+        lower_activity_bound: datetime | None = None
+        upper_activity_bound: datetime | None = None
+        if not thread_range_mode:
+            if has_time_range:
+                lower_activity_bound = start_time_bound
+                upper_activity_bound = end_time_bound
+            elif minutes_limit > 0:
+                lower_activity_bound = cutoff_time
+
+        window_mode = thread_range_mode or has_time_range or minutes_limit > 0
+        if forum_scan_limit is not None:
+            thread_scan_cap: int | None = forum_scan_limit
+        elif window_mode:
+            thread_scan_cap = None
+        else:
+            thread_scan_cap = message_limit if message_limit > 0 else None
+
+        # 归档帖子按活跃时间倒序返回, 时间窗口模式下可提前 break
+        break_bound = (
+            lower_activity_bound if (window_mode and not thread_range_mode) else None
+        )
+
+        def thread_in_window(th: discord.Thread) -> bool:
+            tcs = thread_created_start
+            tce = thread_created_end
+            lo = lower_activity_bound
+            hi = upper_activity_bound
+            if thread_range_mode:
+                ca = _thread_created(th)
+                if tcs is not None and ca < tcs:
+                    return False
+                if tce is not None and ca > tce:
+                    return False
+                return True
+            la = _thread_last_activity(th)
+            if lo is not None and la < lo:
+                return False
+            if hi is not None and _thread_created(th) > hi:
+                return False
+            return True
+
+        def thread_matches(th: discord.Thread) -> bool:
+            if not match_types:
+                return True
+            if target_user_ids and th.owner_id in target_user_ids:
+                return True
+            if nick_pattern_filter:
+                owner = th.owner
+                owner_name = getattr(owner, "display_name", None) if owner else None
+                if owner_name and fnmatch(owner_name, nick_pattern_filter):
+                    return True
+            if content_pattern_filter and fnmatch(
+                th.name or "", content_pattern_filter
+            ):
+                return True
+            return False
+
+        async def process_thread(th: discord.Thread) -> None:
+            nonlocal checked_count
+            if not thread_in_window(th):
+                return
+            if delete_threads and thread_matches(th):
+                threads_to_delete.append(th)
+                return
+            try:
+                async for msg in th.history(**history_kwargs):
+                    if cutoff_time is not None and msg.created_at < cutoff_time:
+                        break
+                    if (
+                        start_time_bound is not None
+                        and msg.created_at < start_time_bound
+                    ):
+                        break
+                    if message_matches(msg):
+                        checked_messages_by_channel.setdefault(th.id, []).append(msg)
+                        scanned_thread_channels[th.id] = th
+                        checked_count += 1
+            except discord.Forbidden:
+                pass
+            except Exception as e:
+                l.warning(
+                    f"[clear-message] Error fetching thread messages ({th.id}): {e}"
+                )
+
+        for forum in target_forums:
+            examined = 0
+            stop = False
+            for th in sorted(forum.threads, key=_thread_last_activity, reverse=True):
+                if thread_scan_cap is not None and examined >= thread_scan_cap:
+                    stop = True
+                    break
+                examined += 1
+                threads_scanned_count += 1
+                await process_thread(th)
+            if not stop:
+                try:
+                    async for th in forum.archived_threads(limit=None):
+                        if thread_scan_cap is not None and examined >= thread_scan_cap:
+                            break
+                        if (
+                            break_bound is not None
+                            and _thread_last_activity(th) < break_bound
+                        ):
+                            break
+                        examined += 1
+                        threads_scanned_count += 1
+                        await process_thread(th)
+                except (discord.Forbidden, discord.HTTPException):
+                    pass
+
+        if checked_count == 0 and not threads_to_delete:
             match_descs: list[str] = []
             if target_user_ids:
                 if len(target_user_ids) == 1 and match_types == ["user"]:
@@ -375,7 +640,14 @@ class ClearMessageService:
         success_count = 0
         failed_count = 0
         too_old_count = 0
-        channel_map = {ch.id: ch for ch in target_channels}
+        channel_map: dict[
+            int,
+            discord.TextChannel
+            | discord.VoiceChannel
+            | discord.StageChannel
+            | discord.Thread,
+        ] = {ch.id: ch for ch in target_channels}
+        channel_map.update(scanned_thread_channels)
 
         # 超过 14 天的消息无法通过 bulk delete 删除 (Discord 限制),
         # 只能逐条 Message.delete() (不受 14 天限制) 删除。
@@ -463,6 +735,24 @@ class ClearMessageService:
                         )
                         failed_count += 1
 
+        # ===== 删除整个帖子 (行为 B) =====
+        thread_deleted_count = 0
+        thread_failed_count = 0
+        for th in threads_to_delete:
+            try:
+                await th.delete()
+                thread_deleted_count += 1
+            except discord.Forbidden:
+                return _t("clearmsg.thread_forbidden", lang, name=th.name)
+            except discord.NotFound:
+                pass
+            except discord.HTTPException as e:
+                l.warning(f"[clear-message] Thread delete error (thread={th.id}): {e}")
+                thread_failed_count += 1
+            except Exception as e:
+                l.warning(f"[clear-message] Thread delete error (thread={th.id}): {e}")
+                thread_failed_count += 1
+
         scope_text = _t(
             "clearmsg.scope_channel" if scope == "channel" else "clearmsg.scope_server",
             lang,
@@ -541,8 +831,24 @@ class ClearMessageService:
             result_lines.append(
                 _t("clearmsg.result_check_limit", lang, count=message_limit)
             )
+        if threads_scanned_count > 0 or delete_threads or target_forums:
+            result_lines.append(
+                _t(
+                    "clearmsg.result_threads_scanned",
+                    lang,
+                    count=threads_scanned_count,
+                )
+            )
         result_lines.append(_t("clearmsg.result_matched", lang, count=checked_count))
         result_lines.append(_t("clearmsg.result_deleted", lang, count=success_count))
+        if delete_threads:
+            result_lines.append(
+                _t("clearmsg.result_threads_deleted", lang, count=thread_deleted_count)
+            )
+        if thread_failed_count > 0:
+            result_lines.append(
+                _t("clearmsg.result_threads_failed", lang, count=thread_failed_count)
+            )
         if too_old_count > 0:
             result_lines.append(
                 _t("clearmsg.result_too_old", lang, count=too_old_count)
@@ -571,6 +877,16 @@ class ClearMessageService:
                     success=success_count,
                 )
                 + (
+                    _t(
+                        "clearmsg.audit_threads",
+                        lang,
+                        deleted=thread_deleted_count,
+                        failed=thread_failed_count,
+                    )
+                    if delete_threads
+                    else ""
+                )
+                + (
                     _t("clearmsg.audit_too_old", lang, count=too_old_count)
                     if too_old_count > 0
                     else ""
@@ -587,7 +903,7 @@ class ClearMessageService:
                 guild=guild,
                 channel=channel,
                 detail=audit_detail,
-                success=failed_count == 0,
+                success=failed_count == 0 and thread_failed_count == 0,
             )
 
         return result_msg

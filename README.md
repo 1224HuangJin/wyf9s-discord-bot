@@ -54,7 +54,7 @@
 | `/uuid` | 所有人 | 生成 UUID |
 | `/to-file <name> <content>` | 所有人 | 内容导出为文件 |
 | `/delete <id>` | Mod | 删除消息 |
-| `/clear-message ...` | Mod | 批量清理消息 |
+| `/clear-message ...` | Mod | 批量清理消息（支持论坛帖子清理 / 删除整帖） |
 | `/move-channel ...` | Mod | 移动频道 |
 | `/lock now [channel]` | Mod | 锁定频道 |
 | `/lock unlock [channel]` | Mod | 解锁频道 |

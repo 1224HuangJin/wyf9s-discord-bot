@@ -128,8 +128,11 @@ class ToolsCog(commands.Cog):
         channel=ls("tools.param_clear_channel"),
         start=ls("tools.param_clear_start"),
         end=ls("tools.param_clear_end"),
+        delete_threads=ls("tools.param_clear_delete_threads"),
+        forum_scan_count=ls("tools.param_clear_forum_scan_count"),
     )
     @app_commands.choices(scope=_clear_scope_choices())
+    @app_commands.choices(delete_threads=_bool_choices())
     @u.requires(u.Permission.MOD, perm_module="tools")
     async def slash_clear_message(
         self,
@@ -145,9 +148,12 @@ class ToolsCog(commands.Cog):
         channel: discord.TextChannel
         | discord.VoiceChannel
         | discord.StageChannel
+        | discord.ForumChannel
         | None = None,
         start: str | None = None,
         end: str | None = None,
+        delete_threads: int = 0,
+        forum_scan_count: int | None = None,
     ):
         await interaction.response.defer()
         result = await self._do_clear_message(
@@ -166,6 +172,8 @@ class ToolsCog(commands.Cog):
             channel_target=channel,
             start=start,
             end=end,
+            delete_threads=bool(delete_threads),
+            forum_scan_count=forum_scan_count,
         )
         view = (
             ClearMessageResultView(self, interaction.guild)
@@ -319,6 +327,42 @@ class ToolsCog(commands.Cog):
         start = flags.get("start") or None
         end = flags.get("end") or None
 
+        delete_threads = False
+        dt_flag = (
+            flags.get("delete-threads")
+            or flags.get("delete_threads")
+            or flags.get("delete-thread")
+        )
+        if dt_flag is not None:
+            try:
+                delete_threads = u.parse_bool(dt_flag) if dt_flag != "" else True
+            except ValueError:
+                await ctx.send(
+                    self._mark_clear_message(
+                        self._tr(ctx, "tools.bool_invalid", value=dt_flag)
+                    ),
+                    delete_after=10,
+                )
+                return
+
+        forum_scan_count = None
+        fsc_flag = (
+            flags.get("forum-scan-count")
+            or flags.get("forum_scan_count")
+            or flags.get("forum-scan")
+        )
+        if fsc_flag is not None:
+            try:
+                forum_scan_count = int(fsc_flag)
+            except ValueError:
+                await ctx.send(
+                    self._mark_clear_message(
+                        self._tr(ctx, "tools.clear_forum_scan_int")
+                    ),
+                    delete_after=10,
+                )
+                return
+
         await ctx.defer()
         result = await self._do_clear_message(
             ctx.author,
@@ -336,6 +380,8 @@ class ToolsCog(commands.Cog):
             channel_target=channel,
             start=start,
             end=end,
+            delete_threads=delete_threads,
+            forum_scan_count=forum_scan_count,
         )
         is_success = CLEAR_MESSAGE_MARKER in result
         view = (
