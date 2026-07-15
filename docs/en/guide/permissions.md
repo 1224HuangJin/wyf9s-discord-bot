@@ -11,7 +11,7 @@ This bot uses a **multi-layered custom permission** system (not Discord's built-
 
 ### Inclusion relationships
 
-```
+```text
 config admins   →  Admin (all permissions)
 server admins   →  Mod (mod command permissions, excluding admin-only)
 config mods     →  Mod

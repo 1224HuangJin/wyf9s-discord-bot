@@ -11,7 +11,7 @@
 
 ### 包含关系
 
-```
+```text
 config admins   →  Admin (所有权限)
 服务器管理员    →  Mod (mod 命令权限，不含 admin 专属)
 config mods     →  Mod

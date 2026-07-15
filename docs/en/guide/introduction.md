@@ -4,7 +4,7 @@
 
 ## Overall Architecture
 
-```
+```text
 config.py            # Pydantic config model + loader
 config.yaml          # Runtime configuration (gitignored)
 config.example.yaml  # Example config with inline documentation (source of truth for config fields)

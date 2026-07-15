@@ -4,7 +4,7 @@
 
 ## 整体架构
 
-```
+```text
 config.py            # Pydantic 配置模型 + 加载器
 config.yaml          # 运行时配置 (被 gitignore)
 config.example.yaml  # 带内联文档的示例配置 (配置字段的事实来源)

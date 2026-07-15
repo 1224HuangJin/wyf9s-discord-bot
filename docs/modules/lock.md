@@ -70,7 +70,7 @@
 
 #### 前缀命令 flag
 
-```
+```text
 //lock plan --channel=#公告 --lock-time=22-00 --unlock-time=08-00 --cycle=daily
 ```
 

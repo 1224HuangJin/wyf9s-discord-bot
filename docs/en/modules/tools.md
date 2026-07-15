@@ -111,7 +111,7 @@ Batch clear messages by various filter conditions, supporting a single channel o
 
 Prefix mode passes arguments with `--key=value`:
 
-```
+```text
 //clear-message --user=@someone --within=30m
 //clear-message --nick="*bot*" --scope=server --count=500
 //clear-message --content="*spam*" --start=1d --end=2h

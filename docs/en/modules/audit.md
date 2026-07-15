@@ -37,7 +37,7 @@ Each log is an embed containing (displayed in the configured language):
 - **Detail**: operation description (max 1024 characters).
 - **Timestamp** (UTC).
 
-## Which Operations Are Recorded?
+## Which Operations Are Recorded
 
 | Source module | Action name |
 | --- | --- |

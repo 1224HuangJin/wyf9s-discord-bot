@@ -60,6 +60,6 @@
 
 复杂指令（`clear-message`、`lock plan`）的前缀形式使用 `--key=value` flag 传参，例如：
 
-```
+```text
 //lock plan --channel=#公告 --lock-time=22-00 --unlock-time=08-00 --cycle=daily
 ```

@@ -60,6 +60,6 @@ All command modules can control the registration of slash and prefix commands se
 
 Complex commands (`clear-message`, `lock plan`) use `--key=value` flags to pass arguments in their prefix form, for example:
 
-```
+```text
 //lock plan --channel=#announcements --lock-time=22-00 --unlock-time=08-00 --cycle=daily
 ```

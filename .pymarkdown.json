@@ -5,20 +5,41 @@
     }
   },
   "plugins": {
-    "md013": {
-      "enabled": false
+    "md003": {
+      "style": "atx"
+    },
+    "md004": {
+      "style": "dash"
     },
     "md007": {
       "enabled": false
     },
-    "md040": {
+    "md013": {
       "enabled": false
     },
     "md024": {
-      "enabled": false
+      "siblings_only": true
+    },
+    "md026": {
+      "punctuation": ".,;:!。，、；：！？"
+    },
+    "md029": {
+      "style": "one_or_ordered"
     },
     "md033": {
       "enabled": false
+    },
+    "md035": {
+      "style": "---"
+    },
+    "md041": {
+      "enabled": false
+    },
+    "md046": {
+      "style": "fenced"
+    },
+    "md048": {
+      "style": "backtick"
     }
   }
 }

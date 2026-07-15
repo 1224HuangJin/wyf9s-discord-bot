@@ -70,7 +70,7 @@ Set a scheduled lock / unlock plan for a channel, supporting one-time and recurr
 
 #### Prefix Command Flags
 
-```
+```text
 //lock plan --channel=#announcements --lock-time=22-00 --unlock-time=08-00 --cycle=daily
 ```
 

@@ -111,7 +111,7 @@
 
 前缀模式用 `--key=value` 传参：
 
-```
+```text
 //clear-message --user=@某人 --within=30m
 //clear-message --nick="*bot*" --scope=server --count=500
 //clear-message --content="*spam*" --start=1d --end=2h
