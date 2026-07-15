@@ -14,9 +14,28 @@ uvx ruff check --fix && uvx ruff format && uvx ty check --fix
 
 Fix any remaining errors before committing.
 
+### prek (pre-commit)
+
+The repo ships a [`prek`](https://prek.j178.dev) config (`prek.toml`, prek-native
+TOML — not the `.pre-commit-config.yaml` compat format). It runs ruff (official
+pre-commit hooks), `ty check`, and markdownlint (PyMarkdown).
+
+- Install the git hook once per clone: `uvx prek install`
+- Run on demand: `uvx prek run --all-files`
+- Markdownlint uses `pymarkdownlnt` (a uv dev dependency) configured via
+  `.pymarkdown.json`. The ruleset follows the
+  [SiiWay Markdown standard](https://cn.siiway.org/zh/dev/markdown): ATX
+  headings (MD003), `-` bullets (MD004), `siblings_only` duplicate headings
+  (MD024), heading trailing-punctuation ban incl. full-width (MD026), fenced
+  `---` rules / backtick code fences (MD035/MD046/MD048); MD007/MD013/MD033/MD041
+  are disabled for CJK prose + VitePress/Vue HTML. Fenced code blocks **must**
+  declare a language (use `text` when none fits — MD040). MD049/MD050 (italic /
+  bold style) aren't supported by PyMarkdown. VitePress `layout: home` pages are
+  excluded from the hook (frontmatter-only).
+
 ## Project Structure
 
-```
+```text
 config.py            # Pydantic config models + loader
 config.yaml          # Runtime config (gitignored)
 config.example.yaml  # Example config with docs
@@ -128,28 +147,71 @@ All user-facing text must be localized. Never hardcode display strings.
 - `docs/` — VitePress site (guides + per-module pages); keep command tables and the i18n guide in sync
 - `AGENTS.md` — developer/agent instructions only (keep non-overlapping with README)
 
+### Bilingual docs (i18n)
+
+The docs site is bilingual: Simplified Chinese at the root (`docs/**`) and
+English under the `/en/` locale (`docs/en/**`). The language switcher is wired
+up in `docs/.vitepress/config.mts` via `locales` (`root` = zh, `en` = English).
+
+- **Chinese and English docs must stay fully in sync.** Whenever you add or
+  change a page/section under `docs/`, apply the equivalent change to the
+  mirrored file under `docs/en/` (and vice versa). A zh page at
+  `docs/<path>.md` maps to `docs/en/<path>.md`.
+- Internal doc links in English pages use the `/en/` prefix
+  (e.g. `/en/modules/tools`); external links stay unchanged.
+- Because headings are translated, the `#anchor` slugs differ between zh and en
+  — don't reuse a Chinese anchor in an English link.
+- Verify with a build: `cd docs && bunx vitepress build`.
+
 ## Changelog / Announcement
+
+Only generate a changelog **when the user explicitly asks for one.** Do not
+volunteer it after ordinary changes.
 
 When asked to write a changelog for the bot announcement channel:
 
 1. Provide **both** Chinese and English versions (no need to explicitly label which is which).
-2. Each language starts with a dated Changelog heading, e.g.:
+2. Wrap the **whole** changelog output in a fenced ` ```md ` code block so the
+   user can copy it in one go.
+3. Get the current date from the system (run `date +%Y-%m-%d`) and use it as the
+   changelog date — never guess.
+4. Each language starts with a dated heading that includes a language flag icon:
 
    ```md
-   # 2026-07-13 更新日志
+   # :flag_cn: 更新日志 2026-07-15
 
    - ...
 
-   # 2026-07-13 Changelog
+   # :flag_en: Changelog 2026-07-15
 
    - ...
    ```
 
-3. Append a `[Docs](url)` link after every change entry, pointing to the most
+5. Append a `[Docs](url)` link after every change entry, pointing to the most
    precise documentation location possible (may include `#section-name`).
-   Docs site base URL is `https://dc-bot.wyf9.top` (VitePress `cleanUrls`, e.g.
-   `https://dc-bot.wyf9.top/guide/getting-started#启动参数`).
-4. Breaking changes go in their own emphasized section: `## :rotating_light: 破坏性更改`
+   Docs site base URL is `https://dc-bot.wyf9.top` (VitePress `cleanUrls`).
+   - The **Chinese** changelog links to the Chinese docs, e.g.
+     `https://dc-bot.wyf9.top/guide/getting-started#启动参数`.
+   - The **English** changelog links to the English docs with the `/en/` prefix,
+     e.g. `https://dc-bot.wyf9.top/en/guide/getting-started#launch-arguments`.
+   - The `#anchor` differs between languages (headings are translated), so pick
+     the correct per-language anchor rather than reusing the Chinese one.
+6. Purely technical changes that basically don't affect the user experience
+   (refactors, tooling, CI, dependency bumps, etc.) go as **subtext** (`-#`
+   small-text lines) at the **end of each language section**, instead of as
+   normal bullet points:
+
+   ```md
+   # :flag_cn: 更新日志 2026-07-15
+
+   - 面向用户的更新... [Docs](https://dc-bot.wyf9.top/...)
+
+   -# (技术性修改)
+   -# 某项内部重构
+   -# 某项工具链调整
+   ```
+
+7. Breaking changes go in their own emphasized section: `## :rotating_light: 破坏性更改`
    (Chinese) / `## :rotating_light: Breaking Changes` (English).
 
 ## Logging & Audit
