@@ -89,6 +89,9 @@ class AntiSpamCog(commands.Cog):
             user=t.cast(discord.User, target),
             within_minutes=within_minutes,
             scope="server",
+            # Also delete the spammer's own forum posts (threads) within the
+            # window, not just their messages inside other threads.
+            delete_threads=True,
             write_audit=False,
             lang=self._guild_lang(guild),
         )

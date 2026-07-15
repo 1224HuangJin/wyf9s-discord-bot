@@ -48,6 +48,8 @@ When writing to the audit log, the triggering message is **forwarded** to the au
 
 When `clear-message` specifies a number of minutes, it cleans up the user's messages from the last N minutes across the **server scope** (internally reusing the bulk cleanup service, writing no extra audit entry, with the result merged into this record). Set to `null` / `false` to disable.
 
+Cleanup also covers **forum posts**: it deletes both the user's messages inside forum threads and the **entire threads authored by the user** (`delete_threads`, which also removes other people's messages inside those threads).
+
 ## Configuration
 
 ```yaml

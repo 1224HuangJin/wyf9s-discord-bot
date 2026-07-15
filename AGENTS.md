@@ -178,11 +178,11 @@ When asked to write a changelog for the bot announcement channel:
 4. Each language starts with a dated heading that includes a language flag icon:
 
    ```md
-   # :flag_cn: 更新日志 2026-07-15
+   # :flag_cn: 更新日志 - 2026-07-15
 
    - ...
 
-   # :flag_en: Changelog 2026-07-15
+   # :flag_us: Changelog - 2026-07-15
 
    - ...
    ```
@@ -202,13 +202,13 @@ When asked to write a changelog for the bot announcement channel:
    normal bullet points:
 
    ```md
-   # :flag_cn: 更新日志 2026-07-15
+   # :flag_cn: 更新日志 - 2026-07-15
 
    - 面向用户的更新... [Docs](https://dc-bot.wyf9.top/...)
 
    -# (技术性修改)
-   -# 某项内部重构
-   -# 某项工具链调整
+   -# - 某项内部重构
+   -# - 某项工具链调整
    ```
 
 7. Breaking changes go in their own emphasized section: `## :rotating_light: 破坏性更改`
