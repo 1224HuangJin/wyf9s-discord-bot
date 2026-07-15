@@ -24,7 +24,7 @@ def hit(self, key, limit, window) -> tuple[bool, float]:
 ```
 
 - Each user is **counted independently** for each command.
-- When the limit is exceeded, the bot replies with `:hourglass_flowing_sand: **Rate limited, retry in `Ns`**` (a temporary message).
+- When the limit is exceeded, the bot replies with `:hourglass_flowing_sand: Rate limited, retry in Ns` (a temporary message).
 
 ### Quota rules
 

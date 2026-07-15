@@ -1,0 +1,24 @@
+{
+  "extensions": {
+    "front-matter": {
+      "enabled": true
+    }
+  },
+  "plugins": {
+    "md013": {
+      "enabled": false
+    },
+    "md007": {
+      "enabled": false
+    },
+    "md040": {
+      "enabled": false
+    },
+    "md024": {
+      "enabled": false
+    },
+    "md033": {
+      "enabled": false
+    }
+  }
+}
