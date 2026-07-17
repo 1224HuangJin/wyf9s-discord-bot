@@ -114,6 +114,10 @@ Token 优先级：`--token` / `W9DCBOT_TOKEN` > token 文件（`tk.yaml`）> `co
 
 数据文件（`perm.yaml` / `lang_settings.yaml` / `schedules.yaml`）及日志文件默认存放于 `./data/`，可用 `--data-dir` 指定；读取时若不存在会回退到程序目录。多实例部署请为各实例指定独立的数据目录以避免数据互相干扰。
 
+### （可选）Systemd — 后台运行、进程守护、自动重启与开机自启动
+
+若您希望xxx，可以xxxxxxxxxxx
+
 ## 许可
 
 MIT
