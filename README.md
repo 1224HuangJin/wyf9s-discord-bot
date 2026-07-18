@@ -157,13 +157,13 @@ sudo systemctl enable wyf9s-bot
 
 |操作|命令|
 |:---|:---:|
-|查看状态|sudo systemctl status wyf9s-bot|
-|启动服务|sudo systemctl start wyf9s-bot|
-|停止服务|sudo systemctl stop wyf9s-bot|
-|重启服务|sudo systemctl restart wyf9s-bot|
-|查看日志|sudo journalctl -u wyf9s-bot -f|
-|查看最近 50 行日志|sudo journalctl -u wyf9s-bot -n 50 --no-pager|
-|禁用开机自启|sudo systemctl disable wyf9s-bot|
+|查看状态|`sudo systemctl status wyf9s-bot`|
+|启动服务|`sudo systemctl start wyf9s-bot`|
+|停止服务|`sudo systemctl stop wyf9s-bot`|
+|重启服务|`sudo systemctl restart wyf9s-bot`|
+|查看日志|`sudo journalctl -u wyf9s-bot -f`|
+|查看最近 50 行日志|`sudo journalctl -u wyf9s-bot -n 50 --no-pager`|
+|禁用开机自启|`sudo systemctl disable wyf9s-bot`|
 
 </details>
 
