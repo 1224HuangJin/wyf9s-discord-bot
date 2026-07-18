@@ -153,8 +153,9 @@ sudo systemctl enable wyf9s-bot
 
 <details>
 <summary>Systemd 常用命令</summary>
+<br>
 
-|操作	|命令|
+|操作|命令|
 |:---|:---:|
 |查看状态|sudo systemctl status wyf9s-bot|
 |启动服务|sudo systemctl start wyf9s-bot|
@@ -203,4 +204,4 @@ sudo systemctl enable wyf9s-bot-2
 
 ## 许可
 
-MIT
+[MIT](https://github.com/wyf9/wyf9s-discord-bot?tab=MIT-1-ov-file)
