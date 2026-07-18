@@ -116,7 +116,90 @@ Token 优先级：`--token` / `W9DCBOT_TOKEN` > token 文件（`tk.yaml`）> `co
 
 ### （可选）Systemd — 后台运行、进程守护、自动重启与开机自启动
 
-若您希望xxx，可以xxxxxxxxxxx
+若您希望该 Bot 在后台运行，具备进程守护、崩溃自动重启以及开机自启动能力，推荐使用 `systemd` 来管理。
+
+1. **创建服务文件**：
+
+```bash
+sudo nano /etc/systemd/system/wyf9s-bot.service
+```
+
+2. **粘贴以下内容（请根据实际情况修改）**：
+
+```
+[Unit]
+Description=wyf9s Discord Bot Service
+After=network.target
+
+[Service]
+Type=simple
+ExecStart=/root/.local/bin/uv run /root/wyf9s-discord-bot/main.py
+Restart=always
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target  
+```
+
+并 `ctrl + x` 输入 `y` 并使用 `enter` 键。
+
+3. **并依次执行**：
+
+```bash
+sudo systemctl daemon-reload
+sudo systemctl start wyf9s-bot
+sudo systemctl enable wyf9s-bot
+```
+
+<details>
+<summary>Systemd 常用命令</summary>
+
+|操作	|命令|
+|:---|:---:|
+|查看状态|sudo systemctl status wyf9s-bot|
+|启动服务|sudo systemctl start wyf9s-bot|
+|停止服务|sudo systemctl stop wyf9s-bot|
+|重启服务|sudo systemctl restart wyf9s-bot|
+|查看日志|sudo journalctl -u wyf9s-bot -f|
+|查看最近 50 行日志|sudo journalctl -u wyf9s-bot -n 50 --no-pager|
+|禁用开机自启|sudo systemctl disable wyf9s-bot|
+
+</details>
+
+#### 如果需要运行多个 Bot 实例：
+
+1. **首先创建第二个服务文件**：
+
+```bash
+sudo nano /etc/systemd/system/wyf9s-bot-2.service
+```
+
+2. **粘贴以下内容**：
+
+* 请注意修改 `YOUR_TOKEN` 至您的Discord Bot Token。
+
+```
+[Unit]
+Description=wyf9s Discord Bot Service 2
+After=network.target
+
+[Service]
+Type=simple
+ExecStart=/root/.local/bin/uv run /root/wyf9s-discord-bot/main.py --token "YOUR_TOKEN"
+Restart=always
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target
+```
+
+3. **并依次执行**：
+
+```bash
+sudo systemctl daemon-reload
+sudo systemctl start wyf9s-bot-2
+sudo systemctl enable wyf9s-bot-2
+```
 
 ## 许可
 
